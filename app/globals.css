@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { -webkit-tap-highlight-color: transparent; }
+  body { @apply bg-canvas text-slate-900 antialiased; }
+  h1, h2, h3 { @apply font-bold tracking-tight text-slate-900; }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex min-h-[44px] select-none items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold
+      transition focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/30
+      disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary { @apply btn bg-primary text-white shadow-sm hover:bg-primary-700 active:bg-primary-800; }
+  .btn-secondary { @apply btn border border-slate-300 bg-white text-slate-800 hover:bg-slate-50; }
+  .btn-ghost { @apply btn text-slate-700 hover:bg-slate-100; }
+  .btn-danger { @apply btn bg-red-700 text-white hover:bg-red-800; }
+  .btn-lg { @apply min-h-[56px] rounded-2xl px-6 text-base; }
+
+  .card { @apply rounded-2xl border border-slate-200/70 bg-white shadow-soft; }
+  .input {
+    @apply block min-h-[44px] w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900
+      placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/20;
+  }
+  textarea.input { @apply py-2.5; }
+  .label { @apply mb-1.5 block text-sm font-semibold text-slate-700; }
+
+  .table-base { @apply w-full border-collapse text-sm; }
+  .table-base th { @apply bg-slate-50 px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wide text-slate-600; }
+  .table-base td { @apply border-t border-slate-100 px-3 py-2.5 align-middle; }
+}
+
+/* Lembar checksheet seperti kertas */
+.sheet table { border-collapse: collapse; }
+.sheet th, .sheet td { border: 1px solid #94a3b8; }
+
+@media print {
+  aside, header, .no-print { display: none !important; }
+  body { background: #fff; }
+  .card { box-shadow: none; border: none; }
+}
