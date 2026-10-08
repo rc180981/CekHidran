@@ -137,8 +137,25 @@ export default function RiwayatChecksheetPage() {
         'Tgl',
         ...checklistItems.map((it) => it.name),
         'Catatan Kendala / Kondisi',
-        'Paraf Petugas',
+        'Petugas Pemeriksa',
       ];
+
+      // Alokasi Lebar Kolom Presisi (Total 277 mm)
+      const colTglWidth = 9;
+      const colCatatanWidth = 56;
+      const colPetugasWidth = 36;
+      const remainingWidth = 277 - colTglWidth - colCatatanWidth - colPetugasWidth; // 176 mm
+      const itemColWidth = checklistItems.length > 0 ? remainingWidth / checklistItems.length : 30;
+
+      const columnStylesConfig: Record<number, any> = {
+        0: { cellWidth: colTglWidth, halign: 'center', fontStyle: 'bold' },
+        [tableHeaders.length - 2]: { cellWidth: colCatatanWidth, halign: 'left', overflow: 'ellipsize' },
+        [tableHeaders.length - 1]: { cellWidth: colPetugasWidth, halign: 'center', overflow: 'ellipsize' },
+      };
+
+      checklistItems.forEach((_, idx) => {
+        columnStylesConfig[idx + 1] = { cellWidth: itemColWidth, halign: 'center' };
+      });
 
       const tableRows = days.map((dayStr) => {
         const ins = inspectionsByDate[dayStr];
@@ -154,10 +171,10 @@ export default function RiwayatChecksheetPage() {
         });
 
         const noteText = ins?.notes || (ins ? 'Nihil' : '-');
-        rowValues.push(noteText.length > 40 ? noteText.slice(0, 38) + '…' : noteText);
+        rowValues.push(noteText.length > 45 ? noteText.slice(0, 42) + '…' : noteText);
 
         const inspector = profiles.find((p) => p.id === ins?.user_id)?.name || (ins ? 'Petugas' : '-');
-        rowValues.push(ins ? `${inspector} (✓)` : '-');
+        rowValues.push(ins ? `${inspector}` : '-');
         return rowValues;
       });
 
@@ -182,18 +199,14 @@ export default function RiwayatChecksheetPage() {
         headStyles: {
           fontSize: 6.6,
           cellPadding: 0.8,
-          minCellHeight: 3.8,
+          minCellHeight: 4,
           fillColor: [241, 245, 249],
           textColor: [15, 23, 42],
           fontStyle: 'bold',
           lineColor: [148, 163, 184],
           lineWidth: 0.15,
         },
-        columnStyles: {
-          0: { cellWidth: 8.5, halign: 'center', fontStyle: 'bold' },
-          [tableHeaders.length - 2]: { halign: 'left', cellWidth: 50 },
-          [tableHeaders.length - 1]: { cellWidth: 26, halign: 'center' },
-        },
+        columnStyles: columnStylesConfig,
         didParseCell: (data) => {
           if (data.section === 'body') {
             const val = String(data.cell.raw);
@@ -202,6 +215,9 @@ export default function RiwayatChecksheetPage() {
               data.cell.styles.fontStyle = 'bold';
             } else if (val.includes('✕ Rusak')) {
               data.cell.styles.textColor = [200, 25, 25];
+              data.cell.styles.fontStyle = 'bold';
+            } else if (data.column.index === tableHeaders.length - 1 && val !== '-') {
+              data.cell.styles.textColor = [15, 23, 42];
               data.cell.styles.fontStyle = 'bold';
             }
           }
