@@ -5,8 +5,10 @@ import { useEffect, useState } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase/client';
 import { Card } from '@/components/ui';
-import { formatDate, jakartaMonth, monthRange, monthLabel } from '@/lib/period';
-import { Image as ImageIcon, Building2, Filter, X, ChevronRight, Eye } from 'lucide-react';
+import { Image as ImageIcon, Building2, Filter, X, ChevronRight, Eye, FileText, Loader2, Download } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { monthRange, monthLabel, jakartaMonth } from '@/lib/period';
 
 export default function RiwayatChecksheetPage() {
   const [loading, setLoading] = useState(true);
@@ -14,6 +16,8 @@ export default function RiwayatChecksheetPage() {
   const [hydrants, setHydrants] = useState<any[]>([]);
   const [items, setItems] = useState<any[]>([]);
   const [inspections, setInspections] = useState<any[]>([]);
+  const [profiles, setProfiles] = useState<any[]>([]);
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   // Filter States
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>('all');
@@ -26,11 +30,12 @@ export default function RiwayatChecksheetPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [wSnap, hSnap, iSnap, insSnap] = await Promise.all([
+        const [wSnap, hSnap, iSnap, insSnap, pSnap] = await Promise.all([
           getDocs(collection(db, 'warehouses')),
           getDocs(collection(db, 'hydrants')),
           getDocs(collection(db, 'checklist_items')),
           getDocs(collection(db, 'inspections')),
+          getDocs(collection(db, 'profiles')),
         ]);
 
         const wList: any[] = [];
@@ -54,6 +59,10 @@ export default function RiwayatChecksheetPage() {
         const inList: any[] = [];
         insSnap.forEach((d) => inList.push(d.data()));
         setInspections(inList);
+
+        const prList: any[] = [];
+        pSnap.forEach((d) => prList.push(d.data()));
+        setProfiles(prList);
       } catch (err) {
         console.error(err);
       } finally {
@@ -90,6 +99,126 @@ export default function RiwayatChecksheetPage() {
       const d = ins.inspected_at?.slice(0, 10);
       if (d) inspectionsByDate[d] = ins;
     });
+
+  // Handler Cetak PDF Checksheet (Tabel bersih tanpa kolom foto kondisi)
+  const handleExportPdf = () => {
+    if (!activeHydrant) return;
+    setExportingPdf(true);
+    try {
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+      // Header Judul
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.text('LEMBAR CHECKSHEET PEMERIKSAAN HYDRANT BOX', 148, 14, { align: 'center' });
+
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Periode Bulan: ${monthLabel(currentMonth)}`, 148, 19, { align: 'center' });
+
+      // Info Hydrant Box
+      doc.setDrawColor(180, 190, 200);
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(14, 23, 269, 14, 2, 2, 'FD');
+
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`No. Hydrant: ${activeHydrant.number}`, 18, 29);
+      doc.text(`Gudang: Gudang ${activeHydrant.warehouse_name}`, 78, 29);
+      doc.text(`Jenis: ${activeHydrant.type}`, 138, 29);
+      doc.text(`Posisi: ${activeHydrant.location_type === 'indoor' ? 'Dalam Gudang' : 'Luar Gudang'}`, 208, 29);
+
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Lokasi: ${activeHydrant.location_name}`, 18, 34);
+
+      // Data Baris Tabel 31 Hari (Tanpa Kolom Foto Kondisi)
+      const checklistItems = items ?? [];
+      const tableHeaders = [
+        'Tgl',
+        ...checklistItems.map((it) => it.name),
+        'Catatan Kendala / Kondisi',
+        'Paraf Petugas',
+      ];
+
+      const tableRows = days.map((dayStr) => {
+        const ins = inspectionsByDate[dayStr];
+        const dayNum = dayStr.slice(8);
+        const resMap = new Map((ins?.results ?? []).map((r: any) => [r.checklistItemId, r.result]));
+
+        const rowValues = [dayNum];
+        checklistItems.forEach((it) => {
+          const res = resMap.get(it.id);
+          if (res === 'baik') rowValues.push('✓ Baik');
+          else if (res === 'tidak_baik') rowValues.push('✕ Rusak');
+          else rowValues.push('-');
+        });
+
+        rowValues.push(ins?.notes || (ins ? 'Nihil' : '-'));
+
+        const inspector = profiles.find((p) => p.id === ins?.user_id)?.name || (ins ? 'Petugas' : '-');
+        rowValues.push(ins ? `${inspector} (✓)` : '-');
+        return rowValues;
+      });
+
+      autoTable(doc, {
+        head: [tableHeaders],
+        body: tableRows,
+        startY: 40,
+        theme: 'grid',
+        styles: {
+          fontSize: 7.5,
+          cellPadding: 1.5,
+          halign: 'center',
+          valign: 'middle',
+          textColor: [30, 41, 59],
+          lineColor: [203, 213, 225],
+          lineWidth: 0.1,
+        },
+        headStyles: {
+          fillColor: [241, 245, 249],
+          textColor: [15, 23, 42],
+          fontStyle: 'bold',
+          lineColor: [148, 163, 184],
+          lineWidth: 0.2,
+        },
+        columnStyles: {
+          0: { cellWidth: 10, halign: 'center', fontStyle: 'bold' },
+          [tableHeaders.length - 2]: { halign: 'left', cellWidth: 'auto' },
+          [tableHeaders.length - 1]: { cellWidth: 32, halign: 'center' },
+        },
+        didParseCell: (data) => {
+          if (data.section === 'body') {
+            const val = String(data.cell.raw);
+            if (val.includes('✓ Baik')) {
+              data.cell.styles.textColor = [16, 120, 60];
+              data.cell.styles.fontStyle = 'bold';
+            } else if (val.includes('✕ Rusak')) {
+              data.cell.styles.textColor = [200, 25, 25];
+              data.cell.styles.fontStyle = 'bold';
+            }
+          }
+        },
+        margin: { left: 14, right: 14, bottom: 20 },
+      });
+
+      // Footer Catatan & Tanda Tangan
+      const finalY = (doc as any).lastAutoTable?.finalY || 160;
+      if (finalY < 175) {
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Dicetak secara digital melalui Aplikasi Cek Hidran pada ${new Date().toLocaleString('id-ID')}`, 14, finalY + 10);
+        doc.text('Mengetahui, Supervisor K3 / HSE', 220, finalY + 10);
+        doc.text('( .................................................. )', 220, finalY + 25);
+      }
+
+      doc.save(`Checksheet-${activeHydrant.number}-${currentMonth}.pdf`);
+    } catch (err) {
+      console.error(err);
+      alert('Gagal membuat file PDF.');
+    } finally {
+      setExportingPdf(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -169,8 +298,26 @@ export default function RiwayatChecksheetPage() {
       {activeHydrant ? (
         <div className="card bg-white p-6 sheet shadow-md overflow-x-auto space-y-6 border border-slate-300">
           <div className="border border-slate-400 p-4 rounded-xl bg-slate-50/60 shadow-inner">
-            <div className="text-center font-bold text-lg text-slate-900 uppercase tracking-wider border-b border-slate-300 pb-2 mb-3">
-              Checksheet Pemeriksaan Hydrant Box
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-300 pb-2 mb-3 gap-2">
+              <div className="font-bold text-base sm:text-lg text-slate-900 uppercase tracking-wider">
+                Checksheet Pemeriksaan Hydrant Box
+              </div>
+              <button
+                type="button"
+                onClick={handleExportPdf}
+                disabled={exportingPdf}
+                className="btn-primary text-xs px-3.5 py-1.5 flex items-center justify-center gap-1.5 shadow-sm"
+              >
+                {exportingPdf ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" /> Menyiapkan PDF...
+                  </>
+                ) : (
+                  <>
+                    <FileText size={14} /> Ekspor PDF Checksheet
+                  </>
+                )}
+              </button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs text-slate-800">
               <div>

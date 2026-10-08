@@ -176,123 +176,123 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Grid Utama: Progres Per Gudang (Interaktif) & Temuan Terbaru */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Kolom Kiri (5/12): Progres Per Gudang (Dapat Diklik) */}
-        <div className="lg:col-span-5 space-y-4">
-          <Card
-            title={
-              <div className="flex items-center justify-between w-full">
-                <span className="font-bold text-slate-900 text-base">Progres Pemeriksaan Per Gudang</span>
-                <span className="text-[11px] font-normal text-slate-400">Klik gudang untuk detail</span>
-              </div>
-            }
-          >
-            <div className="space-y-4">
-              {warehouseStats.map((wh) => (
-                <div
-                  key={wh.id}
-                  onClick={() => setSelectedWarehouseModal(wh)}
-                  className="p-3.5 rounded-xl border border-slate-200/80 hover:border-primary-400 hover:bg-slate-50/70 transition-all cursor-pointer shadow-sm group select-none"
-                >
-                  <div className="flex justify-between items-center text-sm mb-2">
-                    <div className="flex items-center gap-2.5">
-                      <div className="h-8 w-8 rounded-lg bg-primary-50 text-primary-700 flex items-center justify-center font-bold text-xs group-hover:scale-105 transition-transform">
-                        <Building2 size={16} />
-                      </div>
-                      <div>
-                        <strong className="text-slate-900 group-hover:text-primary transition-colors">
-                          Gudang {wh.name}
-                        </strong>
-                        <p className="text-xs text-slate-500">
-                          {wh.checked} dari {wh.total} titik terperiksa
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span className="font-bold text-base text-primary block leading-none">
-                        {wh.percentage}%
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-medium">Buka titik →</span>
-                    </div>
+      {/* SEKSI 1: PROGRES PEMERIKSAAN PER GUDANG (FULL WIDTH) */}
+      <Card
+        title={
+          <div className="flex items-center justify-between w-full">
+            <span className="font-bold text-slate-900 text-base">Progres Pemeriksaan Per Gudang</span>
+            <span className="text-xs text-slate-400 font-normal">Klik gudang untuk rincian titik</span>
+          </div>
+        }
+      >
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {warehouseStats.map((wh) => (
+            <div
+              key={wh.id}
+              onClick={() => setSelectedWarehouseModal(wh)}
+              className="p-4 rounded-xl border border-slate-200/90 hover:border-primary-400 hover:bg-slate-50/80 transition-all cursor-pointer shadow-sm group select-none space-y-3"
+            >
+              <div className="flex justify-between items-start text-sm">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-9 w-9 rounded-xl bg-primary-50 text-primary-700 flex items-center justify-center font-bold text-sm group-hover:scale-105 transition-transform">
+                    <Building2 size={18} />
                   </div>
-                  <ProgressBar
-                    value={wh.checked}
-                    max={wh.total}
-                    tone={wh.percentage === 100 ? 'green' : 'primary'}
-                  />
+                  <div>
+                    <strong className="text-slate-900 group-hover:text-primary transition-colors block font-bold">
+                      Gudang {wh.name}
+                    </strong>
+                    <p className="text-xs text-slate-500">
+                      {wh.checked} dari {wh.total} titik terperiksa
+                    </p>
+                  </div>
                 </div>
-              ))}
+                <span className="font-bold text-lg text-primary">{wh.percentage}%</span>
+              </div>
+              <ProgressBar
+                value={wh.checked}
+                max={wh.total}
+                tone={wh.percentage === 100 ? 'green' : 'primary'}
+              />
+              <div className="text-right">
+                <span className="text-[11px] text-primary font-semibold group-hover:underline">
+                  Lihat 18 Titik →
+                </span>
+              </div>
+            </div>
+          ))}
 
-              {warehouseStats.length === 0 && (
-                <p className="text-sm text-slate-500 text-center py-6">Belum ada data gudang.</p>
+          {warehouseStats.length === 0 && (
+            <p className="text-sm text-slate-500 text-center py-6 col-span-3">Belum ada data gudang.</p>
+          )}
+        </div>
+      </Card>
+
+      {/* SEKSI 2: TEMUAN K3 TERBARU (DI BAWAH PROGRES PEMERIKSAAN PER GUDANG) */}
+      <Card
+        title={
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-slate-900 text-base">Temuan K3 Terbaru</span>
+              {openFindingsCount > 0 && (
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-800">
+                  {openFindingsCount} Aktif
+                </span>
               )}
             </div>
-          </Card>
-        </div>
-
-        {/* Kolom Kanan (7/12): Temuan Kondisi Tidak Baik Terbaru */}
-        <div className="lg:col-span-7 space-y-4">
-          <Card
-            title={
-              <div className="flex items-center justify-between w-full">
-                <span className="font-bold text-slate-900 text-base">Temuan K3 Terbaru</span>
-                <Link
-                  href="/dashboard/temuan"
-                  className="text-xs font-bold text-primary hover:underline inline-flex items-center gap-1"
-                >
-                  Lihat Semua Temuan <ArrowRight size={14} />
-                </Link>
-              </div>
-            }
-          >
-            <div className="overflow-x-auto -mx-5 -my-2">
-              <table className="table-base">
-                <thead>
-                  <tr>
-                    <th>Titik Hydrant</th>
-                    <th>Gudang</th>
-                    <th>Deskripsi Kerusakan</th>
-                    <th>Status</th>
-                    <th>Waktu Laporan</th>
+            <Link
+              href="/dashboard/temuan"
+              className="text-xs font-bold text-primary hover:underline inline-flex items-center gap-1"
+            >
+              Lihat Semua Temuan <ArrowRight size={14} />
+            </Link>
+          </div>
+        }
+      >
+        <div className="overflow-x-auto -mx-5 -my-2">
+          <table className="table-base">
+            <thead>
+              <tr>
+                <th>Titik Hydrant</th>
+                <th>Gudang</th>
+                <th>Deskripsi Kerusakan</th>
+                <th>Status</th>
+                <th>Waktu Laporan</th>
+              </tr>
+            </thead>
+            <tbody>
+              {findings.slice(0, 8).map((f: any) => {
+                const h = hydrants.find((item) => item.id === f.hydrant_id);
+                return (
+                  <tr key={f.id} className="hover:bg-slate-50/70 transition-colors">
+                    <td className="font-bold text-slate-900">{h?.number || f.hydrant_number || '-'}</td>
+                    <td className="text-xs text-slate-700">Gudang {h?.warehouse_name || f.warehouse_name || '-'}</td>
+                    <td className="max-w-md truncate text-slate-800 font-medium text-xs">
+                      {f.description}
+                    </td>
+                    <td>
+                      <StatusBadge status={f.status} size="sm" />
+                    </td>
+                    <td className="text-xs text-slate-500 whitespace-nowrap">
+                      {f.created_at ? new Date(f.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) : '-'}
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {findings.slice(0, 6).map((f: any) => {
-                    const h = hydrants.find((item) => item.id === f.hydrant_id);
-                    return (
-                      <tr key={f.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="font-bold text-slate-900">{h?.number || f.hydrant_number || '-'}</td>
-                        <td className="text-xs text-slate-700">Gudang {h?.warehouse_name || f.warehouse_name || '-'}</td>
-                        <td className="max-w-[180px] truncate text-slate-800 font-medium text-xs">
-                          {f.description}
-                        </td>
-                        <td>
-                          <StatusBadge status={f.status} size="sm" />
-                        </td>
-                        <td className="text-xs text-slate-500 whitespace-nowrap">
-                          {f.created_at ? new Date(f.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) : '-'}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                );
+              })}
 
-                  {findings.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="text-center py-8 text-slate-500 text-sm">
-                        <div className="space-y-1">
-                          <p className="font-semibold text-emerald-700">✓ Tidak ada temuan kerusakan terbuka!</p>
-                          <p className="text-xs text-slate-400">Seluruh peralatan hydrant tercatat dalam kondisi prima.</p>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </Card>
+              {findings.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="text-center py-8 text-slate-500 text-sm">
+                    <div className="space-y-1">
+                      <p className="font-semibold text-emerald-700">✓ Tidak ada temuan kerusakan terbuka!</p>
+                      <p className="text-xs text-slate-400">Seluruh peralatan hydrant tercatat dalam kondisi prima.</p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
-      </div>
+      </Card>
 
       {/* ================= MODAL DETAIL KARTU STATISTIK ================= */}
       {detailModal && (

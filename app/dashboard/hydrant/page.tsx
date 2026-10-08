@@ -317,17 +317,17 @@ export default function KelolaHydrantPage() {
           </div>
         }
       >
-        <div className="overflow-x-auto -mx-5 -my-2">
-          <table className="table-base">
-            <thead>
+        <div className="max-h-[520px] overflow-y-auto overflow-x-auto -mx-5 -my-2 border-y border-slate-200 shadow-inner">
+          <table className="table-base relative">
+            <thead className="sticky top-0 bg-slate-100 z-10 shadow-sm border-b border-slate-200">
               <tr>
-                <th>No. Hydrant</th>
-                <th>Gudang</th>
-                <th>Tipe Box</th>
-                <th>Lokasi Penempatan</th>
-                <th>Posisi</th>
-                <th>Kode QR & Stiker</th>
-                <th className="text-right">Aksi</th>
+                <th className="bg-slate-100 font-bold text-slate-800">No. Hydrant</th>
+                <th className="bg-slate-100 font-bold text-slate-800">Gudang</th>
+                <th className="bg-slate-100 font-bold text-slate-800">Tipe Box</th>
+                <th className="bg-slate-100 font-bold text-slate-800">Lokasi Penempatan</th>
+                <th className="bg-slate-100 font-bold text-slate-800">Posisi</th>
+                <th className="bg-slate-100 font-bold text-slate-800">Kode QR & Stiker</th>
+                <th className="text-right bg-slate-100 font-bold text-slate-800">Aksi</th>
               </tr>
             </thead>
             <tbody>

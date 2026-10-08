@@ -211,18 +211,9 @@ export default function TemuanPage() {
                     <ImageIcon size={14} className="text-primary" /> Perbandingan Bukti Foto (Normal vs Temuan)
                   </h4>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {/* FOTO 1: KONDISI NORMAL SEBELUMNYA */}
-                    <div className="rounded-xl border border-emerald-200 bg-emerald-50/30 p-3 space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-emerald-800 flex items-center gap-1">
-                          🟢 Foto Kondisi Normal (Sebelumnya)
-                        </span>
-                        <span className="text-[11px] text-emerald-700">
-                          {prevIns ? formatDate(prevIns.inspected_at) : 'Arsip Awal'}
-                        </span>
-                      </div>
-
+                    <div className="rounded-xl border border-emerald-200 bg-emerald-50/30 p-2.5 flex items-center gap-3">
                       {previousPhoto ? (
                         <div
                           onClick={() =>
@@ -231,37 +222,51 @@ export default function TemuanPage() {
                               caption: `Foto Normal Sebelumnya - ${hydrant?.number} (${formatDate(prevIns?.inspected_at)})`,
                             })
                           }
-                          className="relative aspect-video rounded-lg overflow-hidden bg-slate-900 cursor-pointer group shadow-sm border border-emerald-300"
+                          className="relative w-28 h-20 sm:w-32 sm:h-20 rounded-lg overflow-hidden bg-slate-900 cursor-pointer group shadow-sm border border-emerald-300 shrink-0"
+                          title="Klik untuk melihat ukuran normal"
                         >
                           <img
                             src={previousPhoto}
                             alt="Foto Normal Sebelumnya"
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                           />
-                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1">
-                            <Eye size={16} /> Klik Perbesar
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold gap-1">
+                            <Eye size={13} /> Zoom
                           </div>
                         </div>
                       ) : (
-                        <div className="aspect-video rounded-lg border-2 border-dashed border-emerald-200 bg-white flex flex-col items-center justify-center text-center p-3 text-emerald-700">
-                          <CheckCircle2 size={24} className="mb-1 opacity-60" />
-                          <p className="text-xs font-semibold">Tidak ada arsip foto sebelumnya</p>
-                          <p className="text-[10px] text-slate-400 mt-0.5">Pemeriksaan pertama untuk titik ini</p>
+                        <div className="w-28 h-20 sm:w-32 sm:h-20 rounded-lg border-2 border-dashed border-emerald-200 bg-white flex flex-col items-center justify-center text-center p-1 text-emerald-600 shrink-0">
+                          <CheckCircle2 size={18} className="opacity-60" />
+                          <span className="text-[10px] font-medium leading-tight mt-1">Tanpa Foto</span>
                         </div>
                       )}
+
+                      <div className="text-xs space-y-1 overflow-hidden">
+                        <div className="font-bold text-emerald-800 flex items-center gap-1">
+                          🟢 Kondisi Normal (Lalu)
+                        </div>
+                        <div className="text-[11px] text-emerald-700 truncate">
+                          {prevIns ? formatDate(prevIns.inspected_at) : 'Arsip Awal'}
+                        </div>
+                        {previousPhoto && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setLightbox({
+                                src: previousPhoto,
+                                caption: `Foto Normal Sebelumnya - ${hydrant?.number} (${formatDate(prevIns?.inspected_at)})`,
+                              })
+                            }
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 hover:underline"
+                          >
+                            <Eye size={12} /> Buka Ukuran Normal
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {/* FOTO 2: SAAT TEMUAN KERUSAKAN */}
-                    <div className="rounded-xl border border-red-200 bg-red-50/40 p-3 space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-red-800 flex items-center gap-1">
-                          🔴 Foto Bukti Temuan (Saat Ini)
-                        </span>
-                        <span className="text-[11px] text-red-700">
-                          {formatDate(f.created_at || currentIns?.inspected_at)}
-                        </span>
-                      </div>
-
+                    <div className="rounded-xl border border-red-200 bg-red-50/40 p-2.5 flex items-center gap-3">
                       {currentPhoto ? (
                         <div
                           onClick={() =>
@@ -270,23 +275,47 @@ export default function TemuanPage() {
                               caption: `Foto Bukti Temuan Kerusakan - ${hydrant?.number} (${formatDate(f.created_at)})`,
                             })
                           }
-                          className="relative aspect-video rounded-lg overflow-hidden bg-slate-900 cursor-pointer group shadow-sm border border-red-300"
+                          className="relative w-28 h-20 sm:w-32 sm:h-20 rounded-lg overflow-hidden bg-slate-900 cursor-pointer group shadow-sm border border-red-300 shrink-0"
+                          title="Klik untuk melihat ukuran normal"
                         >
                           <img
                             src={currentPhoto}
                             alt="Foto Temuan Kerusakan"
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                           />
-                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1">
-                            <Eye size={16} /> Klik Perbesar
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold gap-1">
+                            <Eye size={13} /> Zoom
                           </div>
                         </div>
                       ) : (
-                        <div className="aspect-video rounded-lg border-2 border-dashed border-red-200 bg-white flex flex-col items-center justify-center text-center p-3 text-red-700">
-                          <AlertTriangle size={24} className="mb-1 opacity-60" />
-                          <p className="text-xs font-semibold">Foto bukti belum dilampirkan</p>
+                        <div className="w-28 h-20 sm:w-32 sm:h-20 rounded-lg border-2 border-dashed border-red-200 bg-white flex flex-col items-center justify-center text-center p-1 text-red-600 shrink-0">
+                          <AlertTriangle size={18} className="opacity-60" />
+                          <span className="text-[10px] font-medium leading-tight mt-1">Belum Ada Foto</span>
                         </div>
                       )}
+
+                      <div className="text-xs space-y-1 overflow-hidden">
+                        <div className="font-bold text-red-800 flex items-center gap-1">
+                          🔴 Bukti Temuan (Saat Ini)
+                        </div>
+                        <div className="text-[11px] text-red-700 truncate">
+                          {formatDate(f.created_at || currentIns?.inspected_at)}
+                        </div>
+                        {currentPhoto && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setLightbox({
+                                src: currentPhoto,
+                                caption: `Foto Bukti Temuan Kerusakan - ${hydrant?.number} (${formatDate(f.created_at)})`,
+                              })
+                            }
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-800 hover:underline"
+                          >
+                            <Eye size={12} /> Buka Ukuran Normal
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
