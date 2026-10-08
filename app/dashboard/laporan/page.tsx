@@ -1,23 +1,53 @@
-import { requirePermission } from '@/lib/auth';
-import { createClient } from '@/lib/supabase/server';
+'use client';
+
+import { useEffect, useState } from 'react';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase/client';
 import { Card } from '@/components/ui';
 import { jakartaMonth } from '@/lib/period';
-import { FileText, FileSpreadsheet, Download } from 'lucide-react';
+import { FileText, FileSpreadsheet } from 'lucide-react';
 
-export const dynamic = 'force-dynamic';
+export default function EksporLaporanPage() {
+  const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [hydrants, setHydrants] = useState<any[]>([]);
+  const [defaultMonth, setDefaultMonth] = useState<string>(jakartaMonth());
+  const [loading, setLoading] = useState(true);
 
-export default async function EksporLaporanPage() {
-  await requirePermission('ekspor_laporan');
-  const supabase = await createClient();
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [wSnap, hSnap] = await Promise.all([
+          getDocs(collection(db, 'warehouses')),
+          getDocs(collection(db, 'hydrants')),
+        ]);
 
-  const [{ data: warehouses }, { data: hydrants }] = await Promise.all([
-    supabase.from('warehouses').select('id, name').order('name'),
-    supabase.from('hydrants').select('id, number, location_name, warehouse_id, warehouses(name)').eq('active', true).order('number'),
-  ]);
+        const wList: any[] = [];
+        wSnap.forEach((d) => wList.push(d.data()));
+        wList.sort((a, b) => a.name.localeCompare(b.name));
+        setWarehouses(wList);
 
-  const whList = warehouses ?? [];
-  const hydrantList = hydrants ?? [];
-  const defaultMonth = jakartaMonth();
+        const hList: any[] = [];
+        hSnap.forEach((d) => hList.push(d.data()));
+        hList.sort((a, b) => a.number.localeCompare(b.number));
+        setHydrants(hList);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="py-20 text-center space-y-3">
+        <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+        <p className="text-sm font-medium text-slate-600">Memuat opsi laporan…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -29,15 +59,14 @@ export default async function EksporLaporanPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Ekspor Dokumen PDF Lembar Kertas */}
         <Card title="Ekspor PDF Checksheet (Format Lembar Fisik)">
           <form action="/api/laporan/pdf" method="get" target="_blank" className="space-y-4">
             <div>
               <label htmlFor="pdf-hydrant" className="label text-xs">Pilih Titik Hydrant</label>
               <select id="pdf-hydrant" name="hydrantId" required className="input text-xs">
-                {hydrantList.map((h: any) => (
+                {hydrants.map((h: any) => (
                   <option key={h.id} value={h.id}>
-                    {h.number} - {h.location_name} (Gudang {h.warehouses?.name})
+                    {h.number} - {h.location_name} (Gudang {h.warehouse_name})
                   </option>
                 ))}
               </select>
@@ -65,14 +94,13 @@ export default async function EksporLaporanPage() {
           </form>
         </Card>
 
-        {/* Ekspor Spreadsheet Excel Rekap */}
         <Card title="Ekspor Excel Rekapitulasi Checksheet">
           <form action="/api/laporan/excel" method="get" target="_blank" className="space-y-4">
             <div>
               <label htmlFor="excel-gudang" className="label text-xs">Pilih Gudang</label>
               <select id="excel-gudang" name="warehouseId" className="input text-xs">
                 <option value="">Semua Gudang (WH2, WH3, WH4)</option>
-                {whList.map((w) => (
+                {warehouses.map((w) => (
                   <option key={w.id} value={w.id}>
                     Gudang {w.name}
                   </option>

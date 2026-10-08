@@ -1,71 +1,75 @@
-import { requirePermission } from '@/lib/auth';
-import { createClient } from '@/lib/supabase/server';
-import { getFrequency } from '@/lib/settings';
+'use client';
+
+import { useAuth } from '@/lib/firebase/auth-context';
+import { useEffect, useState } from 'react';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase/client';
 import { currentPeriod, jakartaDate, addDays, startOfJakartaDay } from '@/lib/period';
 import { StatCard, Card, ProgressBar, StatusBadge, LocationTag } from '@/components/ui';
 import { CheckCircle2, Clock, AlertTriangle, ShieldCheck, Flame, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 
-export const dynamic = 'force-dynamic';
+export default function DashboardPage() {
+  const { profile } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [hydrants, setHydrants] = useState<any[]>([]);
+  const [inspections, setInspections] = useState<any[]>([]);
+  const [findings, setFindings] = useState<any[]>([]);
+  const [freq, setFreq] = useState<'harian' | 'bulanan'>('harian');
 
-export default async function DashboardPage() {
-  const user = await requirePermission('lihat_dashboard');
-  const supabase = await createClient();
-  const freq = await getFrequency(supabase);
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [wSnap, hSnap, iSnap, fSnap] = await Promise.all([
+          getDocs(collection(db, 'warehouses')),
+          getDocs(collection(db, 'hydrants')),
+          getDocs(collection(db, 'inspections')),
+          getDocs(collection(db, 'findings')),
+        ]);
+
+        const wList: any[] = [];
+        wSnap.forEach((d) => wList.push(d.data()));
+        wList.sort((a, b) => a.name.localeCompare(b.name));
+        setWarehouses(wList);
+
+        const hList: any[] = [];
+        hSnap.forEach((d) => hList.push(d.data()));
+        setHydrants(hList);
+
+        const iList: any[] = [];
+        iSnap.forEach((d) => iList.push(d.data()));
+        setInspections(iList);
+
+        const fList: any[] = [];
+        fSnap.forEach((d) => fList.push(d.data()));
+        setFindings(fList);
+      } catch (err) {
+        console.error('Error loading dashboard data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
   const period = currentPeriod(freq);
-
-  // 1. Ambil data Gudang & Titik Hydrant
-  const [{ data: warehouses }, { data: hydrants }, { data: inspections }, { data: findings }] =
-    await Promise.all([
-      supabase.from('warehouses').select('id, name').order('name'),
-      supabase.from('hydrants').select('id, warehouse_id, number, location_name, location_type, active').eq('active', true),
-      supabase
-        .from('inspections')
-        .select('id, hydrant_id, inspected_at, status')
-        .gte('inspected_at', period.start.toISOString())
-        .lt('inspected_at', period.end.toISOString()),
-      supabase
-        .from('findings')
-        .select('id, description, status, created_at, inspections(hydrant_id, hydrants(number, warehouse_id, warehouses(name)))')
-        .order('created_at', { ascending: false })
-        .limit(10),
-    ]);
-
-  const whList = warehouses ?? [];
-  const hydrantList = hydrants ?? [];
-  const inspList = inspections ?? [];
-  const findingList = findings ?? [];
-
-  const totalPoints = hydrantList.length;
-  // Hitung titik yang sudah diperiksa dalam periode ini (unik per hydrant)
-  const inspectedHydrantIds = new Set(inspList.map((i) => i.hydrant_id));
-  const checkedCount = hydrantList.filter((h) => inspectedHydrantIds.has(h.id)).length;
+  const totalPoints = hydrants.length;
+  const inspectedHydrantIds = new Set(inspections.map((i) => i.hydrant_id));
+  const checkedCount = hydrants.filter((h) => inspectedHydrantIds.has(h.id)).length;
   const uncheckedCount = totalPoints - checkedCount;
 
-  // Temuan terbuka
-  const { count: openFindingsCount } = await supabase
-    .from('findings')
-    .select('id', { count: 'exact', head: true })
-    .in('status', ['terbuka', 'dalam_perbaikan']);
+  const openFindingsCount = findings.filter((f) => f.status === 'terbuka' || f.status === 'dalam_perbaikan').length;
 
-  // Hitung Kepatuhan 7 hari terakhir
   const today = jakartaDate();
   const sevenDaysAgo = addDays(today, -6);
-  const { data: pastSevenInspections } = await supabase
-    .from('inspections')
-    .select('hydrant_id, inspected_at')
-    .gte('inspected_at', startOfJakartaDay(sevenDaysAgo).toISOString())
-    .lte('inspected_at', new Date().toISOString());
-
-  // Kepatuhan 7 hari = % dari target harian (total hydrant * 7)
+  const actualChecksCount = inspections.length;
   const expectedTotalChecks = totalPoints * 7;
-  const actualChecksCount = (pastSevenInspections ?? []).length;
-  const compliancePct =
-    expectedTotalChecks > 0 ? Math.min(100, Math.round((actualChecksCount / expectedTotalChecks) * 100)) : 100;
+  const compliancePct = expectedTotalChecks > 0 ? Math.min(100, Math.round((actualChecksCount / expectedTotalChecks) * 100)) : 100;
 
-  // Progres per gudang
-  const warehouseStats = whList.map((wh) => {
-    const whHydrants = hydrantList.filter((h) => h.warehouse_id === wh.id);
+  const warehouseStats = warehouses.map((wh) => {
+    const whHydrants = hydrants.filter((h) => h.warehouse_id === wh.id);
     const whChecked = whHydrants.filter((h) => inspectedHydrantIds.has(h.id)).length;
     const whTotal = whHydrants.length;
     return {
@@ -77,9 +81,17 @@ export default async function DashboardPage() {
     };
   });
 
+  if (loading) {
+    return (
+      <div className="py-20 text-center space-y-3">
+        <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+        <p className="text-sm font-medium text-slate-600">Memuat data pemantauan hydrant…</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Header Halaman */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Dashboard Pemantauan Hydrant</h1>
@@ -94,7 +106,6 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Kartu Statistik Utama */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="Titik Sudah Dicek"
@@ -112,9 +123,9 @@ export default async function DashboardPage() {
         />
         <StatCard
           label="Temuan Terbuka"
-          value={openFindingsCount ?? 0}
+          value={openFindingsCount}
           hint="Memerlukan tindakan K3"
-          tone={(openFindingsCount ?? 0) > 0 ? 'red' : 'green'}
+          tone={openFindingsCount > 0 ? 'red' : 'green'}
           icon={<AlertTriangle size={24} />}
         />
         <StatCard
@@ -126,7 +137,6 @@ export default async function DashboardPage() {
         />
       </div>
 
-      {/* Progres Pemeriksaan Per Gudang */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card title="Progres Pemeriksaan Per Gudang" className="lg:col-span-2">
           <div className="space-y-5">
@@ -155,7 +165,6 @@ export default async function DashboardPage() {
           </div>
         </Card>
 
-        {/* Ringkasan Cepat */}
         <Card title="Aksi Cepat & Navigasi">
           <div className="space-y-3">
             <Link
@@ -192,7 +201,6 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
-      {/* Tabel Temuan Terbaru */}
       <Card
         title="Temuan Kondisi Tidak Baik Terbaru"
         action={
@@ -213,30 +221,21 @@ export default async function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {findingList.map((f: any) => {
-                const hydrant = f.inspections?.hydrants;
-                const whName = hydrant?.warehouses?.name ?? '-';
-                const hNum = hydrant?.number ?? '-';
-                return (
-                  <tr key={f.id} className="hover:bg-slate-50/60">
-                    <td className="font-bold text-slate-900">{hNum}</td>
-                    <td>{whName}</td>
-                    <td className="max-w-xs truncate text-slate-700">{f.description}</td>
-                    <td>
-                      <StatusBadge status={f.status} />
-                    </td>
-                    <td className="text-xs text-slate-500">
-                      {new Date(f.created_at).toLocaleDateString('id-ID', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
-                    </td>
-                  </tr>
-                );
-              })}
+              {findings.slice(0, 5).map((f: any) => (
+                <tr key={f.id} className="hover:bg-slate-50/60">
+                  <td className="font-bold text-slate-900">{f.hydrant_number || '-'}</td>
+                  <td>{f.warehouse_name || '-'}</td>
+                  <td className="max-w-xs truncate text-slate-700">{f.description}</td>
+                  <td>
+                    <StatusBadge status={f.status} />
+                  </td>
+                  <td className="text-xs text-slate-500">
+                    {f.created_at ? new Date(f.created_at).toLocaleDateString('id-ID') : '-'}
+                  </td>
+                </tr>
+              ))}
 
-              {findingList.length === 0 && (
+              {findings.length === 0 && (
                 <tr>
                   <td colSpan={5} className="text-center py-6 text-slate-500 text-sm">
                     Tidak ada temuan kondisi tidak baik saat ini. Semua equipment dalam kondisi prima!

@@ -1,57 +1,60 @@
-import { requirePermission } from '@/lib/auth';
-import { createClient } from '@/lib/supabase/server';
+'use client';
+
+import { useAuth } from '@/lib/firebase/auth-context';
+import { useEffect, useState } from 'react';
+import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase/client';
 import { Card, StatusBadge } from '@/components/ui';
 import { formatDate } from '@/lib/period';
-import { revalidatePath } from 'next/cache';
-import { CheckCircle2, Wrench } from 'lucide-react';
 
-export const dynamic = 'force-dynamic';
+export default function TemuanPage() {
+  const { profile } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [findings, setFindings] = useState<any[]>([]);
 
-export default async function TemuanPage() {
-  const user = await requirePermission('lihat_dashboard');
-  const supabase = await createClient();
+  const fetchFindings = async () => {
+    try {
+      const snap = await getDocs(collection(db, 'findings'));
+      const list: any[] = [];
+      snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
+      list.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+      setFindings(list);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const { data: findings } = await supabase
-    .from('findings')
-    .select(`
-      id,
-      description,
-      status,
-      resolution_notes,
-      created_at,
-      closed_at,
-      profiles:closed_by(name),
-      inspections(
-        id,
-        inspected_at,
-        notes,
-        hydrants(number, location_name, warehouses(name))
-      )
-    `)
-    .order('created_at', { ascending: false });
+  useEffect(() => {
+    fetchFindings();
+  }, []);
 
-  const findingList = findings ?? [];
-
-  async function updateFindingAction(formData: FormData) {
-    'use server';
-    const findingId = formData.get('findingId') as string;
-    const newStatus = formData.get('status') as string;
-    const notes = formData.get('notes') as string;
-
-    const sb = await createClient();
-    await sb
-      .from('findings')
-      .update({
-        status: newStatus as any,
+  const handleUpdate = async (id: string, newStatus: string, notes: string) => {
+    try {
+      await updateDoc(doc(db, 'findings', id), {
+        status: newStatus,
         resolution_notes: notes,
-      })
-      .eq('id', findingId);
+        closed_at: newStatus === 'selesai' ? new Date().toISOString() : null,
+        closed_by_name: newStatus === 'selesai' ? profile?.name : null,
+      });
+      fetchFindings();
+    } catch (e) {
+      console.error(e);
+      alert('Gagal memperbarui status temuan.');
+    }
+  };
 
-    revalidatePath('/dashboard/temuan');
-    revalidatePath('/dashboard');
+  const canVerify = profile?.role === 'admin_sistem' || profile?.role === 'supervisor_k3';
+
+  if (loading) {
+    return (
+      <div className="py-20 text-center space-y-3">
+        <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+        <p className="text-sm font-medium text-slate-600">Memuat temuan K3…</p>
+      </div>
+    );
   }
-
-  const canVerify = user.role === 'admin_sistem' || user.role === 'supervisor_k3';
 
   return (
     <div className="space-y-6">
@@ -63,77 +66,77 @@ export default async function TemuanPage() {
       </div>
 
       <div className="space-y-4">
-        {findingList.map((f: any) => {
-          const hydrant = f.inspections?.hydrants;
-          const whName = hydrant?.warehouses?.name;
+        {findings.map((f: any) => (
+          <Card key={f.id} className="p-5">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="space-y-1.5 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-bold text-base text-slate-900">
+                    {f.hydrant_number || '-'} (Gudang {f.warehouse_name || '-'})
+                  </span>
+                  <span className="text-xs text-slate-500">· {f.location_name}</span>
+                  <StatusBadge status={f.status} />
+                </div>
 
-          return (
-            <Card key={f.id} className="p-5">
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                <div className="space-y-1.5 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-bold text-base text-slate-900">
-                      {hydrant?.number ?? '-'} (Gudang {whName ?? '-'})
+                <p className="text-sm text-slate-800 font-medium">{f.description}</p>
+
+                <div className="text-xs text-slate-500 flex items-center gap-4 flex-wrap pt-1">
+                  <span>
+                    Dilaporkan: <strong>{formatDate(f.created_at || new Date(), 'long')}</strong>
+                  </span>
+                  {f.closed_at && (
+                    <span className="text-emerald-700">
+                      Ditutup oleh: <strong>{f.closed_by_name || 'Petugas K3'}</strong> pada{' '}
+                      {formatDate(f.closed_at)}
                     </span>
-                    <span className="text-xs text-slate-500">· {hydrant?.location_name}</span>
-                    <StatusBadge status={f.status} />
-                  </div>
-
-                  <p className="text-sm text-slate-800 font-medium">{f.description}</p>
-
-                  <div className="text-xs text-slate-500 flex items-center gap-4 flex-wrap pt-1">
-                    <span>
-                      Dilaporkan:{' '}
-                      <strong>{formatDate(f.created_at, 'long')}</strong>
-                    </span>
-                    {f.closed_at && (
-                      <span className="text-emerald-700">
-                        Ditutup oleh: <strong>{f.profiles?.name ?? 'Petugas K3'}</strong> pada{' '}
-                        {formatDate(f.closed_at)}
-                      </span>
-                    )}
-                  </div>
-
-                  {f.resolution_notes && (
-                    <div className="p-3 bg-slate-50 rounded-xl text-xs text-slate-700 border border-slate-200 mt-2">
-                      <strong className="text-slate-800">Catatan Penanganan:</strong> {f.resolution_notes}
-                    </div>
                   )}
                 </div>
 
-                {/* Form Verifikasi & Tutup Temuan (Admin & Supervisor K3) */}
-                {canVerify && (
-                  <form action={updateFindingAction} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
-                    <input type="hidden" name="findingId" value={f.id} />
-                    <select
-                      name="status"
-                      defaultValue={f.status}
-                      className="input text-xs min-h-[38px] w-auto"
-                    >
-                      <option value="terbuka">Terbuka</option>
-                      <option value="dalam_perbaikan">Dalam Perbaikan</option>
-                      <option value="selesai">Selesai (Ditutup)</option>
-                    </select>
-
-                    <input
-                      name="notes"
-                      type="text"
-                      placeholder="Catatan perbaikan..."
-                      defaultValue={f.resolution_notes || ''}
-                      className="input text-xs min-h-[38px] sm:w-44"
-                    />
-
-                    <button type="submit" className="btn-secondary min-h-[38px] text-xs">
-                      Update Status
-                    </button>
-                  </form>
+                {f.resolution_notes && (
+                  <div className="p-3 bg-slate-50 rounded-xl text-xs text-slate-700 border border-slate-200 mt-2">
+                    <strong className="text-slate-800">Catatan Penanganan:</strong> {f.resolution_notes}
+                  </div>
                 )}
               </div>
-            </Card>
-          );
-        })}
 
-        {findingList.length === 0 && (
+              {canVerify && (
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
+                  <select
+                    defaultValue={f.status}
+                    id={`status-${f.id}`}
+                    className="input text-xs min-h-[38px] w-auto"
+                  >
+                    <option value="terbuka">Terbuka</option>
+                    <option value="dalam_perbaikan">Dalam Perbaikan</option>
+                    <option value="selesai">Selesai (Ditutup)</option>
+                  </select>
+
+                  <input
+                    id={`notes-${f.id}`}
+                    type="text"
+                    placeholder="Catatan perbaikan..."
+                    defaultValue={f.resolution_notes || ''}
+                    className="input text-xs min-h-[38px] sm:w-44"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const sel = (document.getElementById(`status-${f.id}`) as HTMLSelectElement).value;
+                      const not = (document.getElementById(`notes-${f.id}`) as HTMLInputElement).value;
+                      handleUpdate(f.id, sel, not);
+                    }}
+                    className="btn-secondary min-h-[38px] text-xs"
+                  >
+                    Update Status
+                  </button>
+                </div>
+              )}
+            </div>
+          </Card>
+        ))}
+
+        {findings.length === 0 && (
           <Card>
             <p className="text-sm text-slate-500 text-center py-8">
               Tidak ada temuan kondisi tidak baik saat ini.

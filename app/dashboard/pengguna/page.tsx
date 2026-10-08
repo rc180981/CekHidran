@@ -1,83 +1,49 @@
-import { requirePermission } from '@/lib/auth';
-import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+'use client';
+
+import { useEffect, useState } from 'react';
+import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase/client';
 import { Card } from '@/components/ui';
-import { ROLE_LABEL, ROLES, type Role } from '@/lib/rbac';
-import { revalidatePath } from 'next/cache';
-import { UserPlus, Shield, Building2 } from 'lucide-react';
+import { ROLE_LABEL, Role } from '@/lib/rbac';
 
-export const dynamic = 'force-dynamic';
+export default function KelolaPenggunaPage() {
+  const [loading, setLoading] = useState(true);
+  const [profiles, setProfiles] = useState<any[]>([]);
 
-export default async function KelolaPenggunaPage() {
-  await requirePermission('kelola_pengguna');
-  const supabase = await createClient();
-
-  const [{ data: profiles }, { data: warehouses }, { data: userWh }] = await Promise.all([
-    supabase.from('profiles').select('id, name, role, active, created_at').order('created_at'),
-    supabase.from('warehouses').select('id, name').order('name'),
-    supabase.from('user_warehouses').select('user_id, warehouse_id, warehouses(name)'),
-  ]);
-
-  const profileList = profiles ?? [];
-  const whList = warehouses ?? [];
-  const assignments = userWh ?? [];
-
-  // Peta penugasan gudang per pengguna
-  const userWarehousesMap: Record<string, string[]> = {};
-  assignments.forEach((a: any) => {
-    if (!userWarehousesMap[a.user_id]) userWarehousesMap[a.user_id] = [];
-    if (a.warehouses?.name) userWarehousesMap[a.user_id].push(a.warehouses.name);
-  });
-
-  async function createUserAction(formData: FormData) {
-    'use server';
-    const email = formData.get('email') as string;
-    const password = formData.get('password') as string;
-    const name = formData.get('name') as string;
-    const role = formData.get('role') as Role;
-    const assignedWh = formData.getAll('warehouses') as string[];
-
-    const admin = createAdminClient();
-    const { data: newUser, error } = await admin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { name },
-      app_metadata: { role },
-    });
-
-    if (error) {
-      throw new Error(`Gagal membuat akun: ${error.message}`);
+  const fetchProfiles = async () => {
+    try {
+      const snap = await getDocs(collection(db, 'profiles'));
+      const list: any[] = [];
+      snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
+      setProfiles(list);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    if (newUser?.user) {
-      await admin.from('profiles').upsert({
-        id: newUser.user.id,
-        name,
-        role,
-        active: true,
-      });
+  useEffect(() => {
+    fetchProfiles();
+  }, []);
 
-      if (assignedWh.length > 0) {
-        const rows = assignedWh.map((warehouse_id) => ({
-          user_id: newUser.user.id,
-          warehouse_id,
-        }));
-        await admin.from('user_warehouses').insert(rows);
-      }
+  const handleToggleActive = async (id: string, current: boolean) => {
+    try {
+      await updateDoc(doc(db, 'profiles', id), { active: !current });
+      fetchProfiles();
+    } catch (e) {
+      console.error(e);
+      alert('Gagal mengubah status');
     }
+  };
 
-    revalidatePath('/dashboard/pengguna');
-  }
-
-  async function toggleUserAction(formData: FormData) {
-    'use server';
-    const id = formData.get('id') as string;
-    const active = formData.get('active') === 'true';
-
-    const sb = await createClient();
-    await sb.from('profiles').update({ active: !active }).eq('id', id);
-    revalidatePath('/dashboard/pengguna');
+  if (loading) {
+    return (
+      <div className="py-20 text-center space-y-3">
+        <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+        <p className="text-sm font-medium text-slate-600">Memuat daftar pengguna…</p>
+      </div>
+    );
   }
 
   return (
@@ -89,13 +55,13 @@ export default async function KelolaPenggunaPage() {
         </p>
       </div>
 
-      {/* Tabel Pengguna */}
-      <Card title={`Daftar Pengguna Aktif (${profileList.length} Akun)`}>
+      <Card title={`Daftar Pengguna (${profiles.length} Akun)`}>
         <div className="overflow-x-auto -mx-5 -my-2">
           <table className="table-base">
             <thead>
               <tr>
                 <th>Nama Pengguna</th>
+                <th>Email</th>
                 <th>Peran Sistem</th>
                 <th>Gudang Ditugaskan</th>
                 <th>Status Akun</th>
@@ -103,11 +69,12 @@ export default async function KelolaPenggunaPage() {
               </tr>
             </thead>
             <tbody>
-              {profileList.map((p) => {
-                const whs = userWarehousesMap[p.id] || [];
+              {profiles.map((p) => {
+                const whs = p.warehouseIds || [];
                 return (
                   <tr key={p.id}>
                     <td className="font-semibold text-slate-900">{p.name}</td>
+                    <td className="text-xs text-slate-600">{p.email}</td>
                     <td>
                       <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-800 border border-slate-200">
                         {ROLE_LABEL[p.role as Role] || p.role}
@@ -116,7 +83,7 @@ export default async function KelolaPenggunaPage() {
                     <td className="text-xs text-slate-700">
                       {p.role === 'petugas' ? (
                         whs.length > 0 ? (
-                          whs.join(', ')
+                          whs.join(', ').toUpperCase()
                         ) : (
                           <span className="text-amber-600 italic">Belum ada gudang</span>
                         )
@@ -130,13 +97,13 @@ export default async function KelolaPenggunaPage() {
                       </span>
                     </td>
                     <td>
-                      <form action={toggleUserAction}>
-                        <input type="hidden" name="id" value={p.id} />
-                        <input type="hidden" name="active" value={String(p.active)} />
-                        <button type="submit" className={`text-xs font-semibold hover:underline ${p.active ? 'text-red-600' : 'text-emerald-600'}`}>
-                          {p.active ? 'Nonaktifkan' : 'Aktifkan'}
-                        </button>
-                      </form>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleActive(p.id, !!p.active)}
+                        className={`text-xs font-semibold hover:underline ${p.active ? 'text-red-600' : 'text-emerald-600'}`}
+                      >
+                        {p.active ? 'Nonaktifkan' : 'Aktifkan'}
+                      </button>
                     </td>
                   </tr>
                 );
@@ -144,57 +111,6 @@ export default async function KelolaPenggunaPage() {
             </tbody>
           </table>
         </div>
-      </Card>
-
-      {/* Form Tambah Pengguna Baru */}
-      <Card title="Tambah Pengguna Baru">
-        <form action={createUserAction} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <label className="label text-xs">Nama Lengkap</label>
-              <input name="name" required placeholder="Cth: Rudi Hartono" className="input text-xs" />
-            </div>
-            <div>
-              <label className="label text-xs">Email Pengguna</label>
-              <input name="email" type="email" required placeholder="nama@cekhidran.id" className="input text-xs" />
-            </div>
-            <div>
-              <label className="label text-xs">Kata Sandi Awal</label>
-              <input name="password" type="password" required placeholder="Minimal 8 karakter" className="input text-xs" />
-            </div>
-            <div>
-              <label className="label text-xs">Peran Sistem</label>
-              <select name="role" required className="input text-xs">
-                {ROLES.map((r) => (
-                  <option key={r} value={r}>
-                    {ROLE_LABEL[r]}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="label text-xs">Penugasan Gudang (Khusus Peran Petugas)</label>
-            <div className="flex items-center gap-4 pt-1">
-              {whList.map((w) => (
-                <label key={w.id} className="inline-flex items-center gap-1.5 text-xs text-slate-800">
-                  <input type="checkbox" name="warehouses" value={w.id} className="rounded text-primary focus:ring-primary" />
-                  <span>Gudang {w.name}</span>
-                </label>
-              ))}
-            </div>
-            <p className="text-[11px] text-slate-500 mt-1">
-              Petugas hanya dapat memeriksa box hydrant yang berada di gudang yang dicentang.
-            </p>
-          </div>
-
-          <div className="flex justify-end pt-2">
-            <button type="submit" className="btn-primary min-h-[44px] text-xs">
-              <UserPlus size={16} /> Buat Akun Pengguna
-            </button>
-          </div>
-        </form>
       </Card>
     </div>
   );
