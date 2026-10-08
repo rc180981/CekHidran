@@ -76,8 +76,8 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
         <div className="flex items-center gap-3">
           <Logo size={42} />
           <div>
-            <h1 className="text-lg font-bold text-slate-900 leading-tight">Cek Hidran</h1>
-            <p className="text-xs text-slate-500">Antarmuka Petugas Lapangan</p>
+            <h1 className="text-lg font-extrabold text-slate-900 leading-tight tracking-wider uppercase">CEK HIDRAN</h1>
+            <p className="text-[11px] font-semibold text-slate-500 tracking-wider uppercase">ANTARMUKA PETUGAS LAPANGAN</p>
           </div>
         </div>
         <LogoutButton />

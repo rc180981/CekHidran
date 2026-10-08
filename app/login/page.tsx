@@ -12,8 +12,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
           <Logo size={56} />
-          <h1 className="mt-4 text-2xl">Cek Hidran</h1>
-          <p className="mt-1 text-sm text-slate-600">Pencatatan pemeriksaan Hydrant Box</p>
+          <h1 className="mt-4 text-2xl font-extrabold tracking-wider text-slate-900 uppercase">CEK HIDRAN</h1>
+          <p className="mt-1 text-xs font-semibold tracking-wider text-slate-500 uppercase">PENCATATAN PEMERIKSAAN HYDRANT BOX</p>
         </div>
         <div className="card p-6">
           <LoginForm next={next} />

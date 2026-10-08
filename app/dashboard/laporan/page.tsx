@@ -117,18 +117,20 @@ export default function EksporLaporanPage() {
 
       // 1. Header Judul & Kop Dokumen Resmi
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7);
-      doc.setTextColor(100, 116, 139);
-      doc.text('DEPARTEMEN K3 & HSE · FIRE SAFETY INSPECTION', 10, 7.5);
+      doc.setFontSize(7.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text('CEK HIDRAN · DEPARTEMEN K3 & HSE', 10, 7.5);
 
       doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.setTextColor(100, 116, 139);
       doc.text('FORM K3: FM-HSE-HYD-01', 287, 7.5, { align: 'right' });
 
       // Judul Utama Dokumen
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(12.5);
       doc.setTextColor(15, 23, 42);
-      doc.text('LEMBAR CHECKSHEET PEMERIKSAAN HYDRANT BOX', 148.5, 11.5, { align: 'center' });
+      doc.text('LEMBAR PEMERIKSAAN HYDRANT BOX', 148.5, 11.5, { align: 'center' });
 
       // Garis Divider Tipis di Bawah Judul
       doc.setDrawColor(226, 232, 240);
@@ -150,72 +152,73 @@ export default function EksporLaporanPage() {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7);
       doc.setTextColor(15, 23, 42);
-      doc.text('No. Titik Hydrant', 13, 18.5);
-      doc.text(':', 38, 18.5);
+      doc.text('NO. TITIK HYDRANT', 13, 18.5);
+      doc.text(':', 45, 18.5);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7.5);
-      doc.text(String(hydrant.number || '-'), 41, 18.5);
+      doc.text(String(hydrant.number || '-').toUpperCase(), 48, 18.5);
 
       // Baris 2: Lokasi Penempatan (BOLD)
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7);
       doc.setTextColor(15, 23, 42);
-      doc.text('Lokasi Penempatan', 13, 22.5);
-      doc.text(':', 38, 22.5);
+      doc.text('LOKASI PENEMPATAN', 13, 22.5);
+      doc.text(':', 45, 22.5);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7.5);
-      const locText = String(hydrant.location_name || '-');
-      doc.text(locText.length > 48 ? locText.slice(0, 46) + '…' : locText, 41, 22.5);
+      const locText = String(hydrant.location_name || '-').toUpperCase();
+      doc.text(locText.length > 44 ? locText.slice(0, 42) + '…' : locText, 48, 22.5);
 
       // --- Kolom 2 (Tengah: Gudang & Tipe Box) ---
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(6.8);
-      doc.setTextColor(100, 116, 139);
-      doc.text('Area Gudang', 109, 18.5);
-      doc.text(':', 130, 18.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(15, 23, 42);
+      doc.text('AREA GUDANG', 109, 18.5);
+      doc.text(':', 138, 18.5);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7.5);
-      doc.setTextColor(15, 23, 42);
-      doc.text(`Gudang ${hydrant.warehouse_name || '-'}`, 133, 18.5);
+      doc.text(`GUDANG ${String(hydrant.warehouse_name || '-').toUpperCase()}`, 141, 18.5);
 
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(6.8);
-      doc.setTextColor(100, 116, 139);
-      doc.text('Jenis Peralatan', 109, 22.5);
-      doc.text(':', 130, 22.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(15, 23, 42);
+      doc.text('JENIS PERALATAN', 109, 22.5);
+      doc.text(':', 138, 22.5);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7.2);
-      doc.setTextColor(15, 23, 42);
-      doc.text(String(hydrant.type || 'Box Hydrant'), 133, 22.5);
+      doc.text(String(hydrant.type || 'BOX HYDRANT').toUpperCase(), 141, 22.5);
 
       // --- Kolom 3 (Kanan: Posisi & Periode Bulan) ---
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(6.8);
-      doc.setTextColor(100, 116, 139);
-      doc.text('Zona Posisi', 200, 18.5);
-      doc.text(':', 223, 18.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(15, 23, 42);
+      doc.text('ZONA POSISI', 200, 18.5);
+      doc.text(':', 227, 18.5);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7.5);
-      doc.setTextColor(15, 23, 42);
-      doc.text(hydrant.location_type === 'indoor' ? 'Indoor (Dalam)' : 'Outdoor (Luar)', 226, 18.5);
+      doc.text(
+        hydrant.location_type === 'indoor' ? 'INDOOR (DALAM)' : 'OUTDOOR (LUAR)',
+        230,
+        18.5
+      );
 
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(6.8);
-      doc.setTextColor(100, 116, 139);
-      doc.text('Periode Bulan', 200, 22.5);
-      doc.text(':', 223, 22.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(15, 23, 42);
+      doc.text('PERIODE BULAN', 200, 22.5);
+      doc.text(':', 227, 22.5);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7.5);
       doc.setTextColor(16, 120, 60);
-      doc.text(String(monthLabel(pdfBulan)), 226, 22.5);
+      doc.text(String(monthLabel(pdfBulan)).toUpperCase(), 230, 22.5);
 
       // 3. Data Baris Tabel 31 Hari
       const checklistItems = items ?? [];
       const tableHeaders = [
-        'Tgl',
-        ...checklistItems.map((it) => it.name),
-        'Catatan Kendala / Kondisi',
-        'Petugas Pemeriksa',
+        'TGL',
+        ...checklistItems.map((it) => it.name.toUpperCase()),
+        'CATATAN KENDALA / KONDISI',
+        'PETUGAS PEMERIKSA',
       ];
 
       // Alokasi Lebar Kolom Presisi (Total 277 mm)
@@ -314,7 +317,7 @@ export default function EksporLaporanPage() {
       doc.setFontSize(6);
       doc.text('1. Pemeriksaan fisik hydrant box wajib dilaksanakan rutin setiap hari kerja.', 10, footY + 6.5);
       doc.text('2. Segera laporkan ke tim K3 jika ditemukan kendala, segel rusak, atau tekanan abnormal.', 10, footY + 10);
-      doc.text(`Dicetak digital melalui Aplikasi Cek Hidran: ${new Date().toLocaleString('id-ID')}`, 10, footY + 14);
+      doc.text(`Dicetak digital melalui Sistem CEK HIDRAN: ${new Date().toLocaleString('id-ID')}`, 10, footY + 14);
 
       doc.setFontSize(7);
       doc.setFont('helvetica', 'bold');

@@ -77,8 +77,8 @@ export default function AdminSidebar({ user }: SidebarProps) {
       <div className="p-5 flex items-center gap-3 border-b border-slate-700/60">
         <Logo size={36} />
         <div>
-          <span className="font-bold text-base text-white tracking-wide block">Cek Hidran</span>
-          <span className="text-[11px] text-teal-400 font-medium">Sistem Pemantauan K3</span>
+          <span className="font-extrabold text-base text-white tracking-wider block uppercase">CEK HIDRAN</span>
+          <span className="text-[10px] text-teal-400 font-semibold tracking-wider block uppercase">SISTEM PEMANTAUAN K3</span>
         </div>
       </div>
 
