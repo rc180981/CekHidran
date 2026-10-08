@@ -117,15 +117,19 @@ export default function AdminSidebar({ user }: SidebarProps) {
 
       {/* Logout */}
       <div className="p-4 border-t border-slate-700/60">
-        <form action="/auth/keluar" method="post">
-          <button
-            type="submit"
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-300 hover:bg-red-500/10 hover:text-red-200 transition"
-          >
-            <LogOut size={18} className="text-red-400" />
-            Keluar Sistem
-          </button>
-        </form>
+        <button
+          type="button"
+          onClick={async () => {
+            const { auth } = await import('@/lib/firebase/client');
+            const { signOut } = await import('firebase/auth');
+            await signOut(auth);
+            window.location.href = '/login';
+          }}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-300 hover:bg-red-500/10 hover:text-red-200 transition"
+        >
+          <LogOut size={18} className="text-red-400" />
+          Keluar Sistem
+        </button>
       </div>
     </aside>
   );

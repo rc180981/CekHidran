@@ -1,8 +1,9 @@
 import type { NextRequest } from 'next/server';
-import { updateSession } from '@/lib/supabase/middleware';
+import { NextResponse } from 'next/server';
 
 export async function middleware(request: NextRequest) {
-  return updateSession(request);
+  // Sesi Firebase ditangani oleh Firebase Auth di sisi klien
+  return NextResponse.next();
 }
 
 export const config = {

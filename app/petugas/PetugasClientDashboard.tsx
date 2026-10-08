@@ -9,6 +9,7 @@ import { syncQueue } from '@/lib/offline/sync';
 import type { PetugasBundle, QueuedInspection } from '@/lib/types';
 import { Logo } from '@/components/Logo';
 import { LocationTag, StatusBadge } from '@/components/ui';
+import LogoutButton from '@/components/LogoutButton';
 
 export default function PetugasClientDashboard({ initialBundle }: { initialBundle: PetugasBundle }) {
   const searchParams = useSearchParams();
@@ -79,15 +80,7 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
             <p className="text-xs text-slate-500">Antarmuka Petugas Lapangan</p>
           </div>
         </div>
-        <form action="/auth/keluar" method="post">
-          <button
-            type="submit"
-            className="p-2 text-slate-500 hover:text-red-700 hover:bg-red-50 rounded-xl transition"
-            title="Keluar Akun"
-          >
-            <LogOut size={20} />
-          </button>
-        </form>
+        <LogoutButton />
       </div>
 
       {showSuccess && (
