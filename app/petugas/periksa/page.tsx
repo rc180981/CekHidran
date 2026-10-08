@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/lib/firebase/auth-context';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase/client';
 import InspectionWizard from '@/components/petugas/InspectionWizard';
@@ -11,7 +11,7 @@ import { createHash } from 'crypto';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 
-export default function PeriksaPage() {
+function PeriksaContent() {
   const { user, profile, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -106,5 +106,20 @@ export default function PeriksaPage() {
         <InspectionWizard initialBundle={bundle} initialQr={qr} />
       </div>
     </div>
+  );
+}
+
+export default function PeriksaPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-canvas">
+        <div className="text-center space-y-3">
+          <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-sm font-medium text-slate-600">Memuat halaman pemeriksaan…</p>
+        </div>
+      </div>
+    }>
+      <PeriksaContent />
+    </Suspense>
   );
 }
