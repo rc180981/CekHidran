@@ -130,7 +130,7 @@ export default function InspectionWizard({
   }
 
   function handlePhotoCapture(blob: Blob, takenAt: Date) {
-    if (photos.length >= 3) return;
+    if (photos.length >= 4) return;
     const previewUrl = URL.createObjectURL(blob);
     setPhotos((prev) => [...prev, { blob, previewUrl, takenAt }]);
   }
@@ -427,6 +427,31 @@ export default function InspectionWizard({
                 );
               })}
             </div>
+
+            {/* OPSI FOTO BUKTI TEMUAN KERUSAKAN JIKA TERDAPAT STATUS TIDAK BAIK */}
+            {Object.values(results).some((r) => r === 'tidak_baik') && (
+              <div className="p-4 rounded-xl border border-red-200 bg-red-50/50 space-y-3">
+                <div className="flex items-center gap-2 text-red-950 font-bold text-xs">
+                  <span className="h-2 w-2 rounded-full bg-red-600 animate-pulse" />
+                  <span>Foto Bukti Kerusakan / Temuan K3</span>
+                </div>
+                <p className="text-[11px] text-red-800 leading-relaxed">
+                  Karena terdapat item dengan status <strong>"Tidak baik"</strong>, Anda dapat menambahkan foto bukti fokus kerusakan untuk dokumentasi tim perbaikan K3.
+                </p>
+
+                {photos.length < 4 ? (
+                  <CameraCapture
+                    onCapture={handlePhotoCapture}
+                    getStampLines={getStampLines}
+                    disabled={photos.length >= 4}
+                  />
+                ) : (
+                  <p className="text-xs text-emerald-700 font-semibold">
+                    ✓ Batas maksimal foto ({photos.length} foto) telah terpenuhi.
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Catatan Pemeriksaan */}
             <div>

@@ -62,13 +62,14 @@ export function Card({ children, className = '', title, action }: { children: Re
 }
 
 export function StatCard({
-  label, value, hint, tone = 'primary', icon,
+  label, value, hint, tone = 'primary', icon, onClick,
 }: {
   label: string;
   value: ReactNode;
   hint?: ReactNode;
   tone?: 'primary' | 'green' | 'red' | 'amber' | 'slate';
   icon?: ReactNode;
+  onClick?: () => void;
 }) {
   const tones = {
     primary: 'bg-primary-50 text-primary-700',
@@ -78,10 +79,22 @@ export function StatCard({
     slate: 'bg-slate-100 text-slate-600',
   };
   return (
-    <div className="card flex items-start gap-4 p-5">
+    <div
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      className={`card flex items-start gap-4 p-5 transition-all duration-200 ${
+        onClick
+          ? 'cursor-pointer hover:shadow-md hover:border-primary-400 hover:-translate-y-0.5 active:translate-y-0 select-none'
+          : ''
+      }`}
+    >
       {icon && <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${tones[tone]}`}>{icon}</div>}
-      <div className="min-w-0">
-        <p className="text-sm font-medium text-slate-600">{label}</p>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold text-slate-600">{label}</p>
+          {onClick && <span className="text-[10px] text-primary font-bold uppercase tracking-wider bg-primary-50 px-1.5 py-0.5 rounded">Detail →</span>}
+        </div>
         <p className="mt-1 text-3xl font-bold tracking-tight text-slate-900">{value}</p>
         {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
       </div>
