@@ -275,26 +275,28 @@ export default function KelolaHydrantPage() {
       {/* SEKSI 1 (ATAS): DAFTAR MASTER ITEM CHECKLIST */}
       <Card
         title={
-          <div className="flex items-center justify-between w-full">
-            <span className="font-bold text-slate-900 text-base">
-              Daftar Master Item Equipment Checklist ({items.length} Item)
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                setEditingItem(null);
-                setItemForm({
-                  name: '',
-                  description: '',
-                  sort_order: items.length + 1,
-                  active: true,
-                });
-                setItemModalOpen(true);
-              }}
-              className="btn-primary text-xs px-3.5 py-1.5 h-8"
-            >
-              <Plus size={15} /> Tambah Item Checklist
-            </button>
+          <div className="flex flex-wrap items-center justify-between w-full gap-3">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingItem(null);
+                  setItemForm({
+                    name: '',
+                    description: '',
+                    sort_order: items.length + 1,
+                    active: true,
+                  });
+                  setItemModalOpen(true);
+                }}
+                className="btn-primary text-xs px-3.5 py-1.5 h-8 flex items-center gap-1.5 shadow-sm"
+              >
+                <Plus size={15} /> Tambah Item Checklist
+              </button>
+              <span className="font-bold text-slate-900 text-base">
+                Daftar Master Item Equipment Checklist ({items.length} Item)
+              </span>
+            </div>
           </div>
         }
       >
@@ -364,44 +366,44 @@ export default function KelolaHydrantPage() {
       <Card
         title={
           <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full gap-3">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingHydrant(null);
+                  setHydrantForm({
+                    number: '',
+                    warehouse_id: warehouses[0]?.id || 'wh2',
+                    type: 'Box Hydrant Type B',
+                    location_name: '',
+                    location_type: 'indoor',
+                  });
+                  setHydrantModalOpen(true);
+                }}
+                className="btn-primary text-xs px-3.5 py-1.5 h-8 flex items-center gap-1.5 shadow-sm"
+              >
+                <Plus size={15} /> Tambah Titik Hydrant
+              </button>
               <span className="font-bold text-slate-900 text-base">
                 Daftar Titik Hydrant ({filteredHydrants.length} Titik)
               </span>
-              <div className="flex items-center gap-1.5">
-                <Filter size={14} className="text-slate-400" />
-                <select
-                  value={selectedWarehouseFilter}
-                  onChange={(e) => setSelectedWarehouseFilter(e.target.value)}
-                  className="input text-xs py-1 px-2.5 h-8 font-medium bg-slate-50 border-slate-200"
-                >
-                  <option value="all">Semua Gudang</option>
-                  {warehouses.map((wh) => (
-                    <option key={wh.id} value={wh.id}>
-                      Gudang {wh.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                setEditingHydrant(null);
-                setHydrantForm({
-                  number: '',
-                  warehouse_id: warehouses[0]?.id || 'wh2',
-                  type: 'Box Hydrant Type B',
-                  location_name: '',
-                  location_type: 'indoor',
-                });
-                setHydrantModalOpen(true);
-              }}
-              className="btn-primary text-xs px-3.5 py-1.5 h-8"
-            >
-              <Plus size={15} /> Tambah Titik Hydrant
-            </button>
+            <div className="flex items-center gap-1.5">
+              <Filter size={14} className="text-slate-400" />
+              <select
+                value={selectedWarehouseFilter}
+                onChange={(e) => setSelectedWarehouseFilter(e.target.value)}
+                className="input text-xs py-1 px-2.5 h-8 font-medium bg-slate-50 border-slate-200"
+              >
+                <option value="all">Semua Gudang</option>
+                {warehouses.map((wh) => (
+                  <option key={wh.id} value={wh.id}>
+                    Gudang {wh.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         }
       >

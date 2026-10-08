@@ -112,34 +112,34 @@ export default function EksporLaporanPage() {
         if (dKey) inspectionsByDate[dKey] = ins;
       });
 
-      // Susun Dokumen PDF Landscape A4
+      // Susun Dokumen PDF Landscape A4 (Single Page Guarantee, 31 Hari Lengkap)
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
-      // Header Judul
+      // 1. Header Judul Kompak
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
-      doc.text('LEMBAR CHECKSHEET PEMERIKSAAN HYDRANT BOX', 148, 14, { align: 'center' });
+      doc.setFontSize(12);
+      doc.text('LEMBAR CHECKSHEET PEMERIKSAAN HYDRANT BOX', 148.5, 8.5, { align: 'center' });
 
-      doc.setFontSize(9);
+      doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
-      doc.text(`Periode Bulan: ${monthLabel(pdfBulan)}`, 148, 19, { align: 'center' });
+      doc.text(`Periode Bulan: ${monthLabel(pdfBulan)}`, 148.5, 12.5, { align: 'center' });
 
-      // Kotak Identitas Hydrant
+      // 2. Info Box Hydrant Kompak
       doc.setDrawColor(180, 190, 200);
       doc.setFillColor(248, 250, 252);
-      doc.roundedRect(14, 23, 269, 14, 2, 2, 'FD');
+      doc.roundedRect(10, 14.5, 277, 9.5, 1.5, 1.5, 'FD');
 
-      doc.setFontSize(9);
+      doc.setFontSize(7.5);
       doc.setFont('helvetica', 'bold');
-      doc.text(`No. Hydrant: ${hydrant.number}`, 18, 29);
-      doc.text(`Gudang: Gudang ${hydrant.warehouse_name}`, 78, 29);
-      doc.text(`Jenis: ${hydrant.type}`, 138, 29);
-      doc.text(`Posisi: ${hydrant.location_type === 'indoor' ? 'Dalam Gudang' : 'Luar Gudang'}`, 208, 29);
+      doc.text(`No. Hydrant: ${hydrant.number}`, 14, 18.5);
+      doc.text(`Gudang: Gudang ${hydrant.warehouse_name}`, 78, 18.5);
+      doc.text(`Jenis: ${hydrant.type}`, 148, 18.5);
+      doc.text(`Posisi: ${hydrant.location_type === 'indoor' ? 'Dalam Gudang (Indoor)' : 'Luar Gudang (Outdoor)'}`, 218, 18.5);
 
       doc.setFont('helvetica', 'normal');
-      doc.text(`Lokasi: ${hydrant.location_name}`, 18, 34);
+      doc.text(`Lokasi Penempatan: ${hydrant.location_name}`, 14, 22.3);
 
-      // Data Baris Tabel 31 Hari
+      // 3. Data Baris Tabel 31 Hari
       const checklistItems = items ?? [];
       const tableHeaders = [
         'Tgl',
@@ -161,7 +161,8 @@ export default function EksporLaporanPage() {
           else rowValues.push('-');
         });
 
-        rowValues.push(ins?.notes || (ins ? 'Nihil' : '-'));
+        const noteText = ins?.notes || (ins ? 'Nihil' : '-');
+        rowValues.push(noteText.length > 40 ? noteText.slice(0, 38) + '…' : noteText);
 
         const inspectorName = profiles.find((p) => p.id === ins?.user_id)?.name || (ins ? 'Petugas' : '-');
         rowValues.push(ins ? `${inspectorName} (✓)` : '-');
@@ -169,31 +170,87 @@ export default function EksporLaporanPage() {
       });
 
       autoTable(doc, {
-        startY: 40,
+        startY: 25.5,
         head: [tableHeaders],
         body: tableRows,
         theme: 'grid',
+        pageBreak: 'avoid',
+        rowPageBreak: 'avoid',
         styles: {
-          fontSize: 7.5,
-          cellPadding: 1.2,
+          fontSize: 6.2,
+          cellPadding: 0.6,
+          minCellHeight: 3.2,
           halign: 'center',
           valign: 'middle',
-          lineColor: [148, 163, 184],
-          lineWidth: 0.2,
+          textColor: [30, 41, 59],
+          lineColor: [203, 213, 225],
+          lineWidth: 0.1,
+          overflow: 'ellipsize',
         },
         headStyles: {
-          fillColor: [14, 124, 134],
-          textColor: [255, 255, 255],
+          fontSize: 6.6,
+          cellPadding: 0.8,
+          minCellHeight: 3.8,
+          fillColor: [241, 245, 249],
+          textColor: [15, 23, 42],
           fontStyle: 'bold',
-          fontSize: 8,
+          lineColor: [148, 163, 184],
+          lineWidth: 0.15,
         },
         columnStyles: {
-          0: { cellWidth: 10, fontStyle: 'bold' },
-          [checklistItems.length + 1]: { cellWidth: 65, halign: 'left' },
-          [checklistItems.length + 2]: { cellWidth: 32 },
+          0: { cellWidth: 8.5, halign: 'center', fontStyle: 'bold' },
+          [tableHeaders.length - 2]: { halign: 'left', cellWidth: 50 },
+          [tableHeaders.length - 1]: { cellWidth: 26, halign: 'center' },
         },
-        margin: { left: 14, right: 14, bottom: 12 },
+        didParseCell: (data) => {
+          if (data.section === 'body') {
+            const val = String(data.cell.raw);
+            if (val.includes('✓ Baik')) {
+              data.cell.styles.textColor = [16, 120, 60];
+              data.cell.styles.fontStyle = 'bold';
+            } else if (val.includes('✕ Rusak')) {
+              data.cell.styles.textColor = [200, 25, 25];
+              data.cell.styles.fontStyle = 'bold';
+            }
+          }
+        },
+        margin: { left: 10, right: 10, top: 5, bottom: 5 },
       });
+
+      // 4. Footer & Tanda Tangan Kompak
+      const finalY = (doc as any).lastAutoTable?.finalY || 135;
+      const footY = finalY + 4;
+
+      doc.setFontSize(6.8);
+      doc.setFont('helvetica', 'bold');
+      doc.text('KETENTUAN INSPEKSI K3 & HSE:', 10, footY + 3);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6);
+      doc.text('1. Pemeriksaan fisik hydrant box wajib dilaksanakan rutin setiap hari kerja.', 10, footY + 6.5);
+      doc.text('2. Segera laporkan ke tim K3 jika ditemukan kendala, segel rusak, atau tekanan abnormal.', 10, footY + 10);
+      doc.text(`Dicetak digital melalui Aplikasi Cek Hidran: ${new Date().toLocaleString('id-ID')}`, 10, footY + 14);
+
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Petugas Pelaksana / Inspector,', 170, footY + 3, { align: 'center' });
+      doc.text('( .................................................. )', 170, footY + 16, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.2);
+      doc.text(`Regu Gudang ${hydrant.warehouse_name}`, 170, footY + 19.5, { align: 'center' });
+
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Mengetahui / Verifikasi,', 250, footY + 3, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.text('Supervisor K3 / HSE Officer', 250, footY + 6.5, { align: 'center' });
+      doc.text('( .................................................. )', 250, footY + 16, { align: 'center' });
+      doc.setFontSize(6.2);
+      doc.text('Tgl Verifikasi: .........................', 250, footY + 19.5, { align: 'center' });
+
+      // Pastikan Halaman Ekstra Terhapus (Single Page Guarantee)
+      while (doc.getNumberOfPages() > 1) {
+        doc.deletePage(doc.getNumberOfPages());
+      }
 
       // Unduh File
       doc.save(`Checksheet-${hydrant.number}-${hydrant.warehouse_name}-${pdfBulan}.pdf`);
