@@ -272,7 +272,95 @@ export default function KelolaHydrantPage() {
         </div>
       </div>
 
-      {/* SEKSI 1: DAFTAR TITIK HYDRANT */}
+      {/* SEKSI 1 (ATAS): DAFTAR MASTER ITEM CHECKLIST */}
+      <Card
+        title={
+          <div className="flex items-center justify-between w-full">
+            <span className="font-bold text-slate-900 text-base">
+              Daftar Master Item Equipment Checklist ({items.length} Item)
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingItem(null);
+                setItemForm({
+                  name: '',
+                  description: '',
+                  sort_order: items.length + 1,
+                  active: true,
+                });
+                setItemModalOpen(true);
+              }}
+              className="btn-primary text-xs px-3.5 py-1.5 h-8"
+            >
+              <Plus size={15} /> Tambah Item Checklist
+            </button>
+          </div>
+        }
+      >
+        <div className="overflow-x-auto -mx-5 -my-2">
+          <table className="table-base">
+            <thead>
+              <tr>
+                <th className="w-16 text-center">Urutan</th>
+                <th>Nama Item Equipment</th>
+                <th>Petunjuk & Deskripsi Pemeriksaan</th>
+                <th>Status</th>
+                <th className="text-right">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((it) => (
+                <tr key={it.id} className="hover:bg-slate-50/70 transition-colors">
+                  <td className="text-center font-bold text-slate-700">{it.sort_order}</td>
+                  <td className="font-bold text-slate-900 text-sm">{it.name}</td>
+                  <td className="text-xs text-slate-600 max-w-md">{it.description || '-'}</td>
+                  <td>
+                    <span
+                      className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${
+                        it.active ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      {it.active ? 'Aktif' : 'Nonaktif'}
+                    </span>
+                  </td>
+                  <td className="text-right">
+                    <div className="inline-flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingItem(it);
+                          setItemForm({
+                            name: it.name,
+                            description: it.description || '',
+                            sort_order: it.sort_order || 1,
+                            active: !!it.active,
+                          });
+                          setItemModalOpen(true);
+                        }}
+                        className="p-1.5 rounded-lg text-slate-500 hover:text-primary hover:bg-slate-100 transition"
+                        title="Edit Item"
+                      >
+                        <Edit2 size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteItem(it)}
+                        className="p-1.5 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 transition"
+                        title="Hapus Item"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* SEKSI 2 (BAWAH): DAFTAR TITIK HYDRANT */}
       <Card
         title={
           <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full gap-3">
@@ -389,94 +477,6 @@ export default function KelolaHydrantPage() {
                   </td>
                 </tr>
               )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      {/* SEKSI 2: DAFTAR MASTER ITEM CHECKLIST */}
-      <Card
-        title={
-          <div className="flex items-center justify-between w-full">
-            <span className="font-bold text-slate-900 text-base">
-              Daftar Master Item Equipment Checklist ({items.length} Item)
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                setEditingItem(null);
-                setItemForm({
-                  name: '',
-                  description: '',
-                  sort_order: items.length + 1,
-                  active: true,
-                });
-                setItemModalOpen(true);
-              }}
-              className="btn-primary text-xs px-3.5 py-1.5 h-8"
-            >
-              <Plus size={15} /> Tambah Item Checklist
-            </button>
-          </div>
-        }
-      >
-        <div className="overflow-x-auto -mx-5 -my-2">
-          <table className="table-base">
-            <thead>
-              <tr>
-                <th className="w-16 text-center">Urutan</th>
-                <th>Nama Item Equipment</th>
-                <th>Petunjuk & Deskripsi Pemeriksaan</th>
-                <th>Status</th>
-                <th className="text-right">Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((it) => (
-                <tr key={it.id} className="hover:bg-slate-50/70 transition-colors">
-                  <td className="text-center font-bold text-slate-700">{it.sort_order}</td>
-                  <td className="font-bold text-slate-900 text-sm">{it.name}</td>
-                  <td className="text-xs text-slate-600 max-w-md">{it.description || '-'}</td>
-                  <td>
-                    <span
-                      className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${
-                        it.active ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
-                      }`}
-                    >
-                      {it.active ? 'Aktif' : 'Nonaktif'}
-                    </span>
-                  </td>
-                  <td className="text-right">
-                    <div className="inline-flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingItem(it);
-                          setItemForm({
-                            name: it.name,
-                            description: it.description || '',
-                            sort_order: it.sort_order || 1,
-                            active: !!it.active,
-                          });
-                          setItemModalOpen(true);
-                        }}
-                        className="p-1.5 rounded-lg text-slate-500 hover:text-primary hover:bg-slate-100 transition"
-                        title="Edit Item"
-                      >
-                        <Edit2 size={15} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteItem(it)}
-                        className="p-1.5 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 transition"
-                        title="Hapus Item"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
             </tbody>
           </table>
         </div>
