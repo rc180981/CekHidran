@@ -372,39 +372,46 @@ export default function EksporLaporanPage() {
 
       // Buat Workbook Excel
       const workbook = new ExcelJS.Workbook();
-      workbook.creator = 'Cek Hidran K3';
+      workbook.creator = 'CEK HIDRAN · K3 & HSE';
       workbook.created = new Date();
 
       const sheet = workbook.addWorksheet('Rekapitulasi Pemeriksaan');
 
-      // Header Judul
+      // Header Kop Dokumen
       sheet.mergeCells('A1:H1');
-      const titleCell = sheet.getCell('A1');
+      const kopCell = sheet.getCell('A1');
+      kopCell.value = 'CEK HIDRAN · DEPARTEMEN K3 & HSE';
+      kopCell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF64748B' } };
+      kopCell.alignment = { horizontal: 'center' };
+
+      // Header Judul
+      sheet.mergeCells('A2:H2');
+      const titleCell = sheet.getCell('A2');
       titleCell.value = 'REKAPITULASI PEMERIKSAAN HYDRANT & EQUIPMENT K3';
-      titleCell.font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FF0E7C86' } };
+      titleCell.font = { name: 'Arial', size: 13, bold: true, color: { argb: 'FF0E7C86' } };
       titleCell.alignment = { horizontal: 'center' };
 
-      sheet.mergeCells('A2:H2');
-      const subCell = sheet.getCell('A2');
+      sheet.mergeCells('A3:H3');
+      const subCell = sheet.getCell('A3');
       const whLabel =
         excelWarehouseId === 'all'
-          ? 'Semua Gudang (WH2, WH3, WH4)'
-          : `Gudang ${warehouses.find((w) => w.id === excelWarehouseId)?.name || ''}`;
-      subCell.value = `Periode: ${monthLabel(excelBulan)} · Lokasi: ${whLabel}`;
-      subCell.font = { name: 'Arial', size: 10, italic: true };
+          ? 'SEMUA GUDANG (WH2, WH3, WH4)'
+          : `GUDANG ${warehouses.find((w) => w.id === excelWarehouseId)?.name || ''}`.toUpperCase();
+      subCell.value = `PERIODE: ${monthLabel(excelBulan).toUpperCase()} · LOKASI: ${whLabel}`;
+      subCell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF475569' } };
       subCell.alignment = { horizontal: 'center' };
 
       sheet.addRow([]);
 
       // Kolom Tabel Header
       const headerRow = sheet.addRow([
-        'Waktu Periksa',
-        'Gudang',
-        'No. Hydrant',
-        'Lokasi Penempatan',
-        'Petugas Pemeriksa',
-        'Catatan Kendala',
-        ...items.map((it) => it.name),
+        'WAKTU PERIKSA',
+        'GUDANG',
+        'NO. TITIK HYDRANT',
+        'LOKASI PENEMPATAN',
+        'PETUGAS PEMERIKSA',
+        'CATATAN KENDALA',
+        ...items.map((it) => it.name.toUpperCase()),
       ]);
 
       headerRow.eachCell((cell) => {
