@@ -85,6 +85,8 @@ async function doSync(): Promise<SyncResult> {
             status: 'terbuka',
             reported_by: it.userId || auth.currentUser?.uid || 'petugas',
             created_at: it.inspectedAt || new Date().toISOString(),
+            photo_url: photoUrls.length > 0 ? photoUrls[0] : null,
+            photos: photoUrls,
           },
           { merge: true },
         );
