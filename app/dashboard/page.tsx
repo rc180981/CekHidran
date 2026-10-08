@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/firebase/auth-context';
 import { useEffect, useState } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase/client';
-import { currentPeriod, jakartaDate, addDays } from '@/lib/period';
+import { currentPeriod, jakartaDate, addDays, formatDate } from '@/lib/period';
 import { StatCard, Card, ProgressBar, StatusBadge, LocationTag } from '@/components/ui';
 import {
   CheckCircle2,
@@ -17,6 +17,12 @@ import {
   Flame,
   Search,
   Filter,
+  Activity,
+  Wrench,
+  MapPin,
+  Eye,
+  FileText,
+  User,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -27,7 +33,13 @@ export default function DashboardPage() {
   const [hydrants, setHydrants] = useState<any[]>([]);
   const [inspections, setInspections] = useState<any[]>([]);
   const [findings, setFindings] = useState<any[]>([]);
+  const [items, setItems] = useState<any[]>([]);
+  const [profiles, setProfiles] = useState<any[]>([]);
   const [freq, setFreq] = useState<'harian' | 'bulanan'>('harian');
+
+  // Interactive Map State
+  const [selectedMapWarehouse, setSelectedMapWarehouse] = useState<string>('all');
+  const [selectedPinHydrant, setSelectedPinHydrant] = useState<any | null>(null);
 
   // Modal State
   const [detailModal, setDetailModal] = useState<'checked' | 'unchecked' | 'findings' | 'compliance' | null>(null);
@@ -36,11 +48,13 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [wSnap, hSnap, iSnap, fSnap] = await Promise.all([
+        const [wSnap, hSnap, iSnap, fSnap, itSnap, pSnap] = await Promise.all([
           getDocs(collection(db, 'warehouses')),
           getDocs(collection(db, 'hydrants')),
           getDocs(collection(db, 'inspections')),
           getDocs(collection(db, 'findings')),
+          getDocs(collection(db, 'checklist_items')),
+          getDocs(collection(db, 'profiles')),
         ]);
 
         const wList: any[] = [];
@@ -60,6 +74,15 @@ export default function DashboardPage() {
         const fList: any[] = [];
         fSnap.forEach((d) => fList.push(d.data()));
         setFindings(fList);
+
+        const itList: any[] = [];
+        itSnap.forEach((d) => itList.push(d.data()));
+        itList.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+        setItems(itList);
+
+        const pList: any[] = [];
+        pSnap.forEach((d) => pList.push(d.data()));
+        setProfiles(pList);
       } catch (err) {
         console.error('Error loading dashboard data:', err);
       } finally {
@@ -100,6 +123,7 @@ export default function DashboardPage() {
   const expectedTotalChecks = totalPoints * 7;
   const compliancePct = expectedTotalChecks > 0 ? Math.min(100, Math.round((actualChecksCount / expectedTotalChecks) * 100)) : 100;
 
+  // Analisis Statistik Gudang
   const warehouseStats = warehouses.map((wh) => {
     const whHydrants = hydrants.filter((h) => h.warehouse_id === wh.id);
     const whChecked = whHydrants.filter((h) => inspectedHydrantMap.has(h.id)).length;
@@ -113,6 +137,37 @@ export default function DashboardPage() {
       hydrants: whHydrants,
     };
   });
+
+  // 1. Analisis Komponen Sering Rusak (Defect Analytics)
+  const itemDefectMap: Record<string, { id: string; name: string; count: number }> = {};
+  items.forEach((it) => {
+    itemDefectMap[it.id] = { id: it.id, name: it.name, count: 0 };
+  });
+
+  inspections.forEach((ins) => {
+    (ins.results || []).forEach((r: any) => {
+      if (r.result === 'tidak_baik' && itemDefectMap[r.checklistItemId]) {
+        itemDefectMap[r.checklistItemId].count += 1;
+      }
+    });
+  });
+
+  const defectStats = Object.values(itemDefectMap).sort((a, b) => b.count - a.count);
+  const totalDefects = defectStats.reduce((acc, curr) => acc + curr.count, 0);
+
+  // 2. Log Aktivitas Pemeriksaan Terbaru (5 Terkini)
+  const recentInspections = [...inspections]
+    .sort((a, b) => (b.inspected_at || '').localeCompare(a.inspected_at || ''))
+    .slice(0, 5);
+
+  // 3. Skor Kesiapsiagaan Fasilitas (Emergency Readiness Index)
+  const readinessScore = totalPoints > 0 ? Math.max(0, Math.round(((totalPoints - openFindingsCount) / totalPoints) * 100)) : 100;
+
+  // 4. Titik Hydrant untuk Visual Grid Map
+  const mapFilteredHydrants =
+    selectedMapWarehouse === 'all'
+      ? hydrants
+      : hydrants.filter((h) => h.warehouse_id === selectedMapWarehouse);
 
   if (loading) {
     return (
@@ -227,7 +282,247 @@ export default function DashboardPage() {
         </div>
       </Card>
 
-      {/* SEKSI 2: TEMUAN K3 TERBARU (DI BAWAH PROGRES PEMERIKSAAN PER GUDANG) */}
+      {/* SEKSI 2: PETA DENAH MATRIKS TITIK HYDRANT INTERAKTIF */}
+      <Card
+        title={
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full gap-3">
+            <div className="flex items-center gap-2">
+              <MapPin size={18} className="text-primary" />
+              <span className="font-bold text-slate-900 text-base">
+                Denah & Matriks Titik Hydrant Interaktif ({mapFilteredHydrants.length} Titik)
+              </span>
+            </div>
+
+            {/* Filter Tab Gudang */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+              <button
+                type="button"
+                onClick={() => setSelectedMapWarehouse('all')}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
+                  selectedMapWarehouse === 'all'
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                Semua Gudang
+              </button>
+              {warehouses.map((wh) => (
+                <button
+                  key={wh.id}
+                  type="button"
+                  onClick={() => setSelectedMapWarehouse(wh.id)}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition shrink-0 ${
+                    selectedMapWarehouse === wh.id
+                      ? 'bg-primary text-white shadow-sm'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  Gudang {wh.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          {/* Legend Indikator */}
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+            <span className="text-slate-500 font-medium">
+              💡 Klik pada kotak titik hydrant untuk rincian inspeksi & foto kondisi cepat.
+            </span>
+            <div className="flex items-center gap-3.5">
+              <span className="flex items-center gap-1.5 font-semibold text-emerald-800">
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                Siap & Normal
+              </span>
+              <span className="flex items-center gap-1.5 font-semibold text-red-800">
+                <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
+                Temuan Rusak
+              </span>
+              <span className="flex items-center gap-1.5 font-semibold text-slate-500">
+                <span className="h-2.5 w-2.5 rounded-full bg-slate-300" />
+                Belum Dicek
+              </span>
+            </div>
+          </div>
+
+          {/* Grid Matriks Titik Hydrant */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 max-h-[380px] overflow-y-auto p-1 border border-slate-100 rounded-xl">
+            {mapFilteredHydrants.map((h) => {
+              const ins = inspectedHydrantMap.get(h.id);
+              const hasDefect = findings.some(
+                (f) => f.hydrant_id === h.id && (f.status === 'terbuka' || f.status === 'dalam_perbaikan')
+              );
+              const isChecked = !!ins;
+
+              return (
+                <div
+                  key={h.id}
+                  onClick={() => setSelectedPinHydrant(h)}
+                  className={`p-3 rounded-xl border text-left cursor-pointer transition-all hover:scale-[1.02] shadow-sm select-none ${
+                    hasDefect
+                      ? 'bg-red-50/80 border-red-300 hover:border-red-500 hover:bg-red-100/60'
+                      : isChecked
+                      ? 'bg-emerald-50/70 border-emerald-300 hover:border-emerald-500 hover:bg-emerald-100/60'
+                      : 'bg-white border-slate-200 hover:border-primary-400 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <strong className="text-sm font-bold text-slate-900">{h.number}</strong>
+                    {hasDefect ? (
+                      <span className="h-2 w-2 rounded-full bg-red-600" />
+                    ) : isChecked ? (
+                      <CheckCircle2 size={14} className="text-emerald-600" />
+                    ) : (
+                      <Clock size={13} className="text-slate-400" />
+                    )}
+                  </div>
+                  <p className="text-[11px] font-medium text-slate-600 truncate mt-1">
+                    Gudang {h.warehouse_name}
+                  </p>
+                  <p className="text-[10px] text-slate-400 truncate">{h.location_name}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </Card>
+
+      {/* SEKSI 3: DUA KOLOM BERDAMPINGAN (ANALITIK KERUSAKAN & FEED AKTIVITAS) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* KOLOM KIRI: ANALITIK KERUSAKAN KOMPONEN & EMERGENCY READINESS */}
+        <div className="lg:col-span-7">
+          <Card
+            title={
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-2">
+                  <Wrench size={18} className="text-primary" />
+                  <span className="font-bold text-slate-900 text-base">Analitik Kesehatan Komponen</span>
+                </div>
+                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                  {totalDefects} Total Kerusakan Dicatat
+                </span>
+              </div>
+            }
+          >
+            <div className="space-y-5">
+              {/* Emergency Readiness Index */}
+              <div className="p-4 rounded-xl bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-200/80 flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-teal-900 uppercase tracking-wider block">
+                    Tingkat Kesiapsiagaan Fasilitas Hydrant
+                  </span>
+                  <p className="text-xs text-teal-700 mt-0.5">
+                    {totalPoints - openFindingsCount} dari {totalPoints} titik siap dioperasikan tanpa kendala
+                  </p>
+                </div>
+                <div className="text-right">
+                  <span className="text-2xl font-black text-emerald-700">{readinessScore}%</span>
+                  <span className="block text-[10px] font-bold text-emerald-800">
+                    {readinessScore >= 90 ? '🟢 KONDISI PRIMA' : '⚠️ BUTUH PERHATIAN'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Progress Bar Kerusakan per Item Checklist */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                  Frekuensi Kerusakan Berdasarkan Komponen:
+                </h4>
+                {defectStats.map((item) => {
+                  const pct = totalDefects > 0 ? Math.round((item.count / totalDefects) * 100) : 0;
+                  return (
+                    <div key={item.id} className="space-y-1">
+                      <div className="flex justify-between text-xs font-medium">
+                        <span className="text-slate-800">{item.name}</span>
+                        <span className="text-slate-500">
+                          {item.count} temuan ({pct}%)
+                        </span>
+                      </div>
+                      <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-amber-500 rounded-full transition-all duration-300"
+                          style={{ width: `${Math.max(pct, item.count > 0 ? 5 : 0)}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {defectStats.length === 0 && (
+                  <p className="text-xs text-slate-400 py-3 text-center">Belum ada master komponen.</p>
+                )}
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* KOLOM KANAN: FEED AKTIVITAS PEMERIKSAAN TERKINI */}
+        <div className="lg:col-span-5">
+          <Card
+            title={
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-2">
+                  <Activity size={18} className="text-primary" />
+                  <span className="font-bold text-slate-900 text-base">Aktivitas Pemeriksaan Terkini</span>
+                </div>
+                <span className="text-[11px] text-slate-400">Real-time</span>
+              </div>
+            }
+          >
+            <div className="divide-y divide-slate-100 space-y-2">
+              {recentInspections.map((ins) => {
+                const h = hydrants.find((item) => item.id === ins.hydrant_id);
+                const inspector = profiles.find((p) => p.id === ins.user_id)?.name || 'Petugas';
+                const hasProblem = (ins.results || []).some((r: any) => r.result === 'tidak_baik');
+
+                return (
+                  <div key={ins.id} className="pt-2.5 pb-1 flex items-start justify-between text-xs gap-3">
+                    <div className="flex items-start gap-2.5">
+                      <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-700 font-bold shrink-0">
+                        <User size={15} />
+                      </div>
+                      <div className="space-y-0.5">
+                        <p className="text-slate-900 font-semibold">
+                          <strong className="text-slate-950">{inspector}</strong> memeriksa{' '}
+                          <strong className="text-primary">{h?.number || 'Hydrant'}</strong>
+                        </p>
+                        <p className="text-[11px] text-slate-500">
+                          Gudang {h?.warehouse_name || '-'} · {h?.location_name || '-'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
+                          hasProblem ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800'
+                        }`}
+                      >
+                        {hasProblem ? '✕ Kendala' : '✓ Normal'}
+                      </span>
+                      <span className="block text-[10px] text-slate-400 mt-0.5">
+                        {ins.inspected_at
+                          ? new Date(ins.inspected_at).toLocaleTimeString('id-ID', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          : '-'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {recentInspections.length === 0 && (
+                <p className="text-xs text-slate-500 text-center py-8">Belum ada riwayat aktivitas.</p>
+              )}
+            </div>
+          </Card>
+        </div>
+      </div>
+
+      {/* SEKSI 4: TEMUAN K3 TERBARU (DI BAWAH) */}
       <Card
         title={
           <div className="flex items-center justify-between w-full">
@@ -547,6 +842,188 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* ================= MODAL DETAIL TITIK HYDRANT INTERAKTIF (PIN POPUP) ================= */}
+      {selectedPinHydrant && (() => {
+        const ins = inspectedHydrantMap.get(selectedPinHydrant.id);
+        const pointFindings = findings.filter(
+          (f) => f.hydrant_id === selectedPinHydrant.id && (f.status === 'terbuka' || f.status === 'dalam_perbaikan')
+        );
+        const hasDefect = pointFindings.length > 0;
+        const isChecked = !!ins;
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200">
+              {/* Header Modal Titik */}
+              <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-slate-50 to-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className={`h-11 w-11 rounded-xl flex items-center justify-center font-bold text-white shadow-sm ${
+                    hasDefect ? 'bg-red-600' : isChecked ? 'bg-emerald-600' : 'bg-slate-700'
+                  }`}>
+                    <Flame size={22} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-lg text-slate-900 leading-tight">
+                        Titik {selectedPinHydrant.number}
+                      </h3>
+                      <LocationTag type={selectedPinHydrant.location_type} />
+                    </div>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      Gudang {selectedPinHydrant.warehouse_name} · {selectedPinHydrant.location_name}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPinHydrant(null)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/70 transition"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Body Modal Titik */}
+              <div className="p-6 overflow-y-auto space-y-4 flex-1">
+                {/* Status Hari Ini Banner */}
+                <div className={`p-4 rounded-xl border flex items-start gap-3.5 ${
+                  hasDefect
+                    ? 'bg-red-50/80 border-red-200 text-red-950'
+                    : isChecked
+                    ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950'
+                    : 'bg-amber-50/80 border-amber-200 text-amber-950'
+                }`}>
+                  <div className="mt-0.5">
+                    {hasDefect ? (
+                      <AlertTriangle size={20} className="text-red-600" />
+                    ) : isChecked ? (
+                      <CheckCircle2 size={20} className="text-emerald-600" />
+                    ) : (
+                      <Clock size={20} className="text-amber-600" />
+                    )}
+                  </div>
+                  <div className="flex-1 text-xs space-y-1">
+                    <strong className="block text-sm font-bold">
+                      {hasDefect
+                        ? 'Memiliki Temuan Kerusakan K3'
+                        : isChecked
+                        ? 'Sudah Diperiksa Hari Ini'
+                        : 'Belum Diperiksa Hari Ini'}
+                    </strong>
+                    {isChecked ? (
+                      <p className="text-slate-700">
+                        Diperiksa oleh <span className="font-semibold text-slate-900">{ins.inspector_name || 'Petugas'}</span> pada{' '}
+                        {new Date(ins.inspected_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB.
+                      </p>
+                    ) : (
+                      <p className="text-amber-800">
+                        Titik hydrant ini belum mendapat checklist verifikasi fisik hari ini ({jakartaDate()}).
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Temuan Aktif Jika Ada */}
+                {hasDefect && (
+                  <div className="space-y-2">
+                    <span className="text-xs font-bold text-red-900 uppercase tracking-wider block">
+                      Rincian Temuan Kerusakan:
+                    </span>
+                    <div className="space-y-2">
+                      {pointFindings.map((f: any) => (
+                        <div key={f.id} className="p-3 bg-red-50/60 rounded-xl border border-red-200 text-xs space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-red-800 capitalize">
+                              Item: {items.find((it) => it.id === f.item_id)?.name || 'Komponen Hydrant'}
+                            </span>
+                            <StatusBadge status={f.status} />
+                          </div>
+                          {f.notes && <p className="text-slate-700 text-[11px] italic">"{f.notes}"</p>}
+                          {f.photo_url && (
+                            <div className="mt-2">
+                              <img
+                                src={f.photo_url}
+                                alt="Foto Temuan"
+                                className="h-28 w-full object-cover rounded-lg border border-red-200"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Komponen & Status Checklist Hasil Inspeksi */}
+                {isChecked && ins?.results && ins.results.length > 0 && (
+                  <div className="space-y-2">
+                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                      Kondisi Komponen Pemeriksaan:
+                    </span>
+                    <div className="grid grid-cols-2 gap-2">
+                      {ins.results.map((r: any, idx: number) => {
+                        const itemObj = items.find((it) => it.id === r.checklistItemId);
+                        const isGood = r.result === 'baik';
+                        return (
+                          <div
+                            key={idx}
+                            className={`p-2.5 rounded-lg border flex items-center justify-between text-xs ${
+                              isGood ? 'bg-slate-50 border-slate-200' : 'bg-red-50 border-red-200'
+                            }`}
+                          >
+                            <span className="text-slate-700 font-medium truncate mr-1">
+                              {itemObj?.name || `Item #${idx + 1}`}
+                            </span>
+                            <span
+                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                isGood ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
+                              }`}
+                            >
+                              {isGood ? 'Baik' : 'Rusak'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Info Tambahan */}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 text-[11px] text-slate-600 space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Tipe Hydrant:</span>
+                    <span className="font-semibold text-slate-800 capitalize">{selectedPinHydrant.type?.replace('_', ' ') || 'Hydrant Box'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Posisi Penempatan:</span>
+                    <span className="font-semibold text-slate-800">{selectedPinHydrant.location_name}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer Modal Titik */}
+              <div className="px-6 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-3">
+                <Link
+                  href="/dashboard/riwayat"
+                  className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"
+                >
+                  Buka Lembar Checksheet →
+                </Link>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPinHydrant(null)}
+                    className="btn-secondary text-xs px-4 py-2"
+                  >
+                    Tutup
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
