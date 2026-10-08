@@ -23,6 +23,7 @@ export interface CachedHydrant {
   warehouse_id: string;
   warehouse_name: string;
   qr_hash: string;
+  qr_code?: string;
 }
 
 export interface PetugasBundle {

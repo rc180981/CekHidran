@@ -85,11 +85,38 @@ export default function InspectionWizard({
 
   async function handleQrFound(rawText: string) {
     setScanError(null);
-    const code = extractQrCode(rawText);
+    const trimmed = rawText.trim();
+    const code = extractQrCode(trimmed);
     setScannedText(code);
 
-    const hash = await sha256Hex(code);
-    const found = bundle.hydrants.find((h) => h.qr_hash === hash);
+    let hashRaw = '';
+    let hashCode = '';
+    try {
+      hashRaw = await sha256Hex(trimmed);
+      hashCode = await sha256Hex(code);
+    } catch (e) {
+      console.warn('sha256 calculation failed:', e);
+    }
+
+    const cleanSearch = code.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    const found = bundle.hydrants.find((h) => {
+      if (h.qr_hash && (h.qr_hash === hashRaw || h.qr_hash === hashCode)) return true;
+      if (h.qr_code && (h.qr_code === trimmed || h.qr_code === code)) return true;
+      if (h.qr_code && extractQrCode(h.qr_code) === code) return true;
+      if (h.number.toLowerCase() === code.toLowerCase()) return true;
+
+      // Pencocokan nomor hydrant (misal H-01 di dalam QR)
+      const cleanNum = h.number.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (cleanSearch.includes(cleanNum)) {
+        const matchesWarehouse =
+          trimmed.toLowerCase().includes(h.warehouse_name.toLowerCase()) ||
+          trimmed.toLowerCase().includes(h.warehouse_id.toLowerCase()) ||
+          bundle.hydrants.length <= 18;
+        if (matchesWarehouse) return true;
+      }
+      return false;
+    });
 
     if (found) {
       setMatchedHydrant(found);
