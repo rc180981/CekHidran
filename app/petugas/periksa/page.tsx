@@ -11,6 +11,8 @@ import { sha256Hex } from '@/lib/qr';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 
+import { getBundle, setBundle as saveBundleCache } from '@/lib/offline/db';
+
 function PeriksaContent() {
   const { user, profile, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -19,6 +21,103 @@ function PeriksaContent() {
 
   const [bundle, setBundle] = useState<PetugasBundle | null>(null);
   const [loadingData, setLoadingData] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const loadData = async () => {
+    setLoadingData(true);
+    setErrorMessage(null);
+
+    // 1. Coba ambil dari IndexedDB cache lokal terlebih dahulu (instan 0ms)
+    try {
+      const cached = await getBundle();
+      if (cached && cached.hydrants && cached.hydrants.length > 0) {
+        setBundle(cached);
+        setLoadingData(false);
+        return;
+      }
+    } catch (e) {
+      console.warn('Gagal membaca cache lokal IndexedDB:', e);
+    }
+
+    // 2. Jika cache belum ada, ambil langsung dari Firestore
+    try {
+      const userWh = (profile?.warehouseIds || []).map((w: string) => w.toLowerCase());
+      const hSnap = await getDocs(collection(db, 'hydrants'));
+      const hydrantsList: CachedHydrant[] = [];
+
+      for (const doc of hSnap.docs) {
+        const data = doc.data();
+        const docWh = (data.warehouse_id || '').toLowerCase();
+        // Cocokkan gudang jika petugas punya tugas spesifik, atau ambil semua jika profil kosong
+        if (userWh.length === 0 || userWh.includes(docWh)) {
+          const qrVal = data.qr_code || '';
+          const hash = qrVal ? await sha256Hex(qrVal) : '';
+          hydrantsList.push({
+            id: data.id,
+            number: data.number,
+            type: data.type || 'Box Hydrant',
+            location_name: data.location_name,
+            location_type: data.location_type || 'indoor',
+            warehouse_id: data.warehouse_id,
+            warehouse_name: data.warehouse_name || '',
+            qr_hash: hash,
+            qr_code: qrVal,
+          });
+        }
+      }
+
+      // Jika filter gudang menghasilkan 0, ambil seluruh hydrant yang ada
+      if (hydrantsList.length === 0 && hSnap.docs.length > 0) {
+        for (const doc of hSnap.docs) {
+          const data = doc.data();
+          const qrVal = data.qr_code || '';
+          const hash = qrVal ? await sha256Hex(qrVal) : '';
+          hydrantsList.push({
+            id: data.id,
+            number: data.number,
+            type: data.type || 'Box Hydrant',
+            location_name: data.location_name,
+            location_type: data.location_type || 'indoor',
+            warehouse_id: data.warehouse_id,
+            warehouse_name: data.warehouse_name || '',
+            qr_hash: hash,
+            qr_code: qrVal,
+          });
+        }
+      }
+
+      const iSnap = await getDocs(collection(db, 'checklist_items'));
+      const itemsList: ChecklistItem[] = [];
+      iSnap.forEach((doc) => {
+        itemsList.push(doc.data() as ChecklistItem);
+      });
+      itemsList.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+
+      const newBundle: PetugasBundle = {
+        user: {
+          id: profile?.id || 'petugas',
+          name: profile?.name || 'Petugas Lapangan',
+          role: profile?.role || 'petugas',
+          warehouseIds: profile?.warehouseIds || ['wh2'],
+        },
+        hydrants: hydrantsList,
+        items: itemsList,
+        frequency: 'harian',
+        fetchedAt: new Date().toISOString(),
+      };
+
+      setBundle(newBundle);
+      // Simpan ke cache agar siap offline
+      try {
+        await saveBundleCache(newBundle);
+      } catch {}
+    } catch (e: any) {
+      console.error('Error loading periksa bundle:', e);
+      setErrorMessage(e?.message || 'Gagal memuat data titik hydrant dari server.');
+    } finally {
+      setLoadingData(false);
+    }
+  };
 
   useEffect(() => {
     if (!authLoading) {
@@ -26,65 +125,13 @@ function PeriksaContent() {
         router.push('/login');
         return;
       }
-
-      const fetchData = async () => {
-        try {
-          const userWh = profile.warehouseIds || [];
-          const hSnap = await getDocs(collection(db, 'hydrants'));
-          const hydrantsList: CachedHydrant[] = [];
-
-          for (const doc of hSnap.docs) {
-            const data = doc.data();
-            if (userWh.includes(data.warehouse_id)) {
-              const qrVal = data.qr_code || '';
-              const hash = qrVal ? await sha256Hex(qrVal) : '';
-              hydrantsList.push({
-                id: data.id,
-                number: data.number,
-                type: data.type || 'Box Hydrant',
-                location_name: data.location_name,
-                location_type: data.location_type || 'indoor',
-                warehouse_id: data.warehouse_id,
-                warehouse_name: data.warehouse_name || '',
-                qr_hash: hash,
-                qr_code: qrVal,
-              });
-            }
-          }
-
-          const iSnap = await getDocs(collection(db, 'checklist_items'));
-          const itemsList: ChecklistItem[] = [];
-          iSnap.forEach((doc) => {
-            itemsList.push(doc.data() as ChecklistItem);
-          });
-          itemsList.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-
-          setBundle({
-            user: {
-              id: profile.id,
-              name: profile.name,
-              role: profile.role,
-              warehouseIds: profile.warehouseIds || [],
-            },
-            hydrants: hydrantsList,
-            items: itemsList,
-            frequency: 'harian',
-            fetchedAt: new Date().toISOString(),
-          });
-        } catch (e) {
-          console.error(e);
-        } finally {
-          setLoadingData(false);
-        }
-      };
-
-      fetchData();
+      loadData();
     }
   }, [user, profile, authLoading, router]);
 
-  if (authLoading || loadingData || !bundle) {
+  if (authLoading || (loadingData && !bundle)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-canvas">
+      <div className="min-h-screen flex items-center justify-center bg-canvas p-4">
         <div className="text-center space-y-3">
           <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
           <p className="text-sm font-medium text-slate-600">Menyiapkan kamera & checklist…</p>
@@ -92,6 +139,34 @@ function PeriksaContent() {
       </div>
     );
   }
+
+  if (errorMessage && !bundle) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-canvas p-6">
+        <div className="card p-6 max-w-sm w-full text-center space-y-4">
+          <div className="h-12 w-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto font-bold text-lg">
+            !
+          </div>
+          <div>
+            <h2 className="font-bold text-slate-900 text-base">Gagal Menyiapkan Data</h2>
+            <p className="text-xs text-slate-600 mt-1">{errorMessage}</p>
+          </div>
+          <button
+            type="button"
+            onClick={loadData}
+            className="btn-primary w-full text-sm"
+          >
+            Coba Lagi
+          </button>
+          <Link href="/petugas" className="btn-secondary w-full text-xs block text-center">
+            Kembali ke Beranda Petugas
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (!bundle) return null;
 
   return (
     <div className="min-h-screen bg-canvas p-4 sm:p-6 pb-20">

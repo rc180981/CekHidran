@@ -7,7 +7,7 @@ import StepIndicator from '@/components/StepIndicator';
 import QrScanner from './QrScanner';
 import CameraCapture from './CameraCapture';
 import SignaturePad from './SignaturePad';
-import { extractQrCode, sha256Hex } from '@/lib/qr';
+import { extractQrCode, sha256Hex, safeUUID } from '@/lib/qr';
 import { formatDateTime, formatStamp } from '@/lib/period';
 import { getBundle, enqueue, refreshBundle } from '@/lib/offline/db';
 import { syncQueue } from '@/lib/offline/sync';
@@ -169,7 +169,7 @@ export default function InspectionWizard({
     setSubmitError(null);
 
     try {
-      const inspectionId = crypto.randomUUID();
+      const inspectionId = safeUUID();
       const inspectedAt = new Date().toISOString();
 
       // Convert signature base64 data to Blob
