@@ -139,26 +139,25 @@ export default function RiwayatChecksheetPage() {
       doc.line(196, 15, 196, 25);
 
       // --- Kolom 1 (Kiri: No. Hydrant & Lokasi) ---
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(6.8);
-      doc.setTextColor(100, 116, 139);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(15, 23, 42);
       doc.text('No. Titik Hydrant', 13, 18.5);
       doc.text(':', 38, 18.5);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7.5);
-      doc.setTextColor(15, 23, 42);
       doc.text(String(activeHydrant.number || '-'), 41, 18.5);
 
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(6.8);
-      doc.setTextColor(100, 116, 139);
+      // Baris 2: Lokasi Penempatan (BOLD)
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(15, 23, 42);
       doc.text('Lokasi Penempatan', 13, 22.5);
       doc.text(':', 38, 22.5);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7.2);
-      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(7.5);
       const locText = String(activeHydrant.location_name || '-');
-      doc.text(locText.length > 36 ? locText.slice(0, 34) + '…' : locText, 41, 22.5);
+      doc.text(locText.length > 48 ? locText.slice(0, 46) + '…' : locText, 41, 22.5);
 
       // --- Kolom 2 (Tengah: Gudang & Tipe Box) ---
       doc.setFont('helvetica', 'normal');
@@ -456,8 +455,8 @@ export default function RiwayatChecksheetPage() {
                 <strong className="font-semibold">Gudang {activeHydrant.warehouse_name}</strong>
               </div>
               <div className="sm:col-span-2">
-                <span className="text-slate-500 font-medium">Lokasi Hydrant:</span>{' '}
-                <strong className="font-semibold">{activeHydrant.location_name}</strong>
+                <strong className="text-slate-900 font-bold">Lokasi Penempatan:</strong>{' '}
+                <strong className="font-bold text-slate-950">{activeHydrant.location_name}</strong>
               </div>
               <div>
                 <span className="text-slate-500 font-medium">Periode Bulan:</span>{' '}
