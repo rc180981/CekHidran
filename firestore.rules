@@ -1,0 +1,88 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Fungsi pembantu RBAC
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function userProfile() {
+      return get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data;
+    }
+    
+    function userRole() {
+      return userProfile().role;
+    }
+    
+    function isAdmin() {
+      return isSignedIn() && userRole() == 'admin_sistem';
+    }
+    
+    function isSupervisor() {
+      return isSignedIn() && userRole() == 'supervisor_k3';
+    }
+    
+    function isPetugas() {
+      return isSignedIn() && userRole() == 'petugas';
+    }
+    
+    function isManajemen() {
+      return isSignedIn() && userRole() == 'manajemen';
+    }
+
+    // Gudang & Profil
+    match /warehouses/{warehouseId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
+    match /profiles/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
+    }
+    
+    match /user_warehouses/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
+    // Titik Hydrant & Checklist Items
+    match /hydrants/{hydrantId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
+    match /checklist_items/{itemId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
+    match /app_settings/{settingId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
+    // Inspeksi & Hasil
+    match /inspections/{inspectionId} {
+      allow read: if isSignedIn();
+      allow create: if isPetugas();
+      allow update: if isAdmin() || isSupervisor() || isPetugas();
+      allow delete: if isAdmin();
+    }
+    
+    // Temuan K3
+    match /findings/{findingId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isAdmin() || isSupervisor();
+      allow delete: if isAdmin();
+    }
+    
+    // Audit logs
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn();
+    }
+  }
+}
