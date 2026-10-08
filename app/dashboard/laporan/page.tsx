@@ -115,29 +115,100 @@ export default function EksporLaporanPage() {
       // Susun Dokumen PDF Landscape A4 (Single Page Guarantee, 31 Hari Lengkap)
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
-      // 1. Header Judul Kompak
+      // 1. Header Judul & Kop Dokumen Resmi
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.text('LEMBAR CHECKSHEET PEMERIKSAAN HYDRANT BOX', 148.5, 8.5, { align: 'center' });
+      doc.setFontSize(7);
+      doc.setTextColor(100, 116, 139);
+      doc.text('DEPARTEMEN K3 & HSE · FIRE SAFETY INSPECTION', 10, 7.5);
 
-      doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
-      doc.text(`Periode Bulan: ${monthLabel(pdfBulan)}`, 148.5, 12.5, { align: 'center' });
+      doc.text('FORM K3: FM-HSE-HYD-01', 287, 7.5, { align: 'right' });
 
-      // 2. Info Box Hydrant Kompak
-      doc.setDrawColor(180, 190, 200);
+      // Judul Utama Dokumen
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text('LEMBAR CHECKSHEET PEMERIKSAAN HYDRANT BOX', 148.5, 11.5, { align: 'center' });
+
+      // Garis Divider Tipis di Bawah Judul
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.3);
+      doc.line(10, 13.5, 287, 13.5);
+
+      // 2. Info Box Hydrant Terstruktur 3 Kolom Grid Sejajar
+      doc.setDrawColor(203, 213, 225);
       doc.setFillColor(248, 250, 252);
-      doc.roundedRect(10, 14.5, 277, 9.5, 1.5, 1.5, 'FD');
+      doc.roundedRect(10, 15, 277, 10, 1, 1, 'FD');
 
-      doc.setFontSize(7.5);
+      // Garis Partisi Vertikal Antar Kolom
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.2);
+      doc.line(105, 15, 105, 25);
+      doc.line(196, 15, 196, 25);
+
+      // --- Kolom 1 (Kiri: No. Hydrant & Lokasi) ---
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.8);
+      doc.setTextColor(100, 116, 139);
+      doc.text('No. Titik Hydrant', 13, 18.5);
+      doc.text(':', 38, 18.5);
       doc.setFont('helvetica', 'bold');
-      doc.text(`No. Hydrant: ${hydrant.number}`, 14, 18.5);
-      doc.text(`Gudang: Gudang ${hydrant.warehouse_name}`, 78, 18.5);
-      doc.text(`Jenis: ${hydrant.type}`, 148, 18.5);
-      doc.text(`Posisi: ${hydrant.location_type === 'indoor' ? 'Dalam Gudang (Indoor)' : 'Luar Gudang (Outdoor)'}`, 218, 18.5);
+      doc.setFontSize(7.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text(String(hydrant.number || '-'), 41, 18.5);
 
       doc.setFont('helvetica', 'normal');
-      doc.text(`Lokasi Penempatan: ${hydrant.location_name}`, 14, 22.3);
+      doc.setFontSize(6.8);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Lokasi Penempatan', 13, 22.5);
+      doc.text(':', 38, 22.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.2);
+      doc.setTextColor(15, 23, 42);
+      const locText = String(hydrant.location_name || '-');
+      doc.text(locText.length > 36 ? locText.slice(0, 34) + '…' : locText, 41, 22.5);
+
+      // --- Kolom 2 (Tengah: Gudang & Tipe Box) ---
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.8);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Area Gudang', 109, 18.5);
+      doc.text(':', 130, 18.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text(`Gudang ${hydrant.warehouse_name || '-'}`, 133, 18.5);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.8);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Jenis Peralatan', 109, 22.5);
+      doc.text(':', 130, 22.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.2);
+      doc.setTextColor(15, 23, 42);
+      doc.text(String(hydrant.type || 'Box Hydrant'), 133, 22.5);
+
+      // --- Kolom 3 (Kanan: Posisi & Periode Bulan) ---
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.8);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Zona Posisi', 200, 18.5);
+      doc.text(':', 223, 18.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text(hydrant.location_type === 'indoor' ? 'Indoor (Dalam)' : 'Outdoor (Luar)', 226, 18.5);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.8);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Periode Bulan', 200, 22.5);
+      doc.text(':', 223, 22.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(16, 120, 60);
+      doc.text(String(monthLabel(pdfBulan)), 226, 22.5);
 
       // 3. Data Baris Tabel 31 Hari
       const checklistItems = items ?? [];
