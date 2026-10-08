@@ -142,30 +142,28 @@ export default function KelolaPenggunaPage() {
 
       <Card
         title={
-          <div className="flex flex-wrap items-center justify-between w-full gap-3">
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingUser(null);
-                  setUserForm({
-                    name: '',
-                    email: '',
-                    role: 'petugas',
-                    warehouseIds: ['wh2'],
-                    active: true,
-                  });
-                  setUserModalOpen(true);
-                }}
-                className="btn-primary text-xs px-3.5 py-1.5 h-8 flex items-center gap-1.5 shadow-sm"
-              >
-                <Plus size={15} /> Tambah Pengguna Baru
-              </button>
-              <span className="font-bold text-slate-900 text-base">
-                Daftar Pengguna Sistem ({profiles.length} Akun)
-              </span>
-            </div>
-          </div>
+          <span className="font-bold text-slate-900 text-base">
+            Daftar Pengguna Sistem ({profiles.length} Akun)
+          </span>
+        }
+        action={
+          <button
+            type="button"
+            onClick={() => {
+              setEditingUser(null);
+              setUserForm({
+                name: '',
+                email: '',
+                role: 'petugas',
+                warehouseIds: ['wh2'],
+                active: true,
+              });
+              setUserModalOpen(true);
+            }}
+            className="btn-primary text-xs px-3.5 py-1.5 h-8 flex items-center gap-1.5 shadow-sm"
+          >
+            <Plus size={15} /> Tambah Pengguna Baru
+          </button>
         }
       >
         <div className="overflow-x-auto -mx-5 -my-2">
