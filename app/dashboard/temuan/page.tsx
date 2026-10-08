@@ -108,14 +108,14 @@ export default function TemuanPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-slate-200/80">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Temuan Kondisi & Perbaikan K3</h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Riwayat temuan tidak baik, perbandingan foto kondisi normal vs kerusakan, serta verifikasi tindakan K3
+          <h1 className="text-2xl font-black tracking-wider text-slate-900 uppercase">TEMUAN KONDISI & PERBAIKAN K3</h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1 uppercase font-semibold">
+            RIWAYAT TEMUAN TIDAK BAIK, PERBANDINGAN FOTO KONDISI NORMAL VS KERUSAKAN, SERTA VERIFIKASI TINDAKAN K3
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs font-bold px-3 py-1.5 rounded-xl bg-red-50 border border-red-200 text-red-800">
-            {findings.filter((f) => f.status === 'terbuka').length} Temuan Terbuka
+          <span className="text-xs font-bold px-3 py-1.5 rounded-xl bg-red-50 border border-red-200 text-red-800 uppercase">
+            {findings.filter((f) => f.status === 'terbuka').length} TEMUAN TERBUKA
           </span>
         </div>
       </div>

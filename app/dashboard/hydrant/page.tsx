@@ -265,9 +265,9 @@ export default function KelolaHydrantPage() {
       {/* Header Halaman */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-slate-200/80">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Kelola Titik Hydrant & Equipment</h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Pengaturan master titik box hydrant 3 gudang, cetak stiker QR Code, dan master equipment checklist
+          <h1 className="text-2xl font-black tracking-wider text-slate-900 uppercase">KELOLA TITIK HYDRANT & EQUIPMENT</h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1 uppercase font-semibold">
+            PENGATURAN MASTER TITIK BOX HYDRANT 3 GUDANG, CETAK STIKER QR CODE, DAN MASTER EQUIPMENT CHECKLIST
           </p>
         </div>
       </div>
@@ -275,8 +275,8 @@ export default function KelolaHydrantPage() {
       {/* SEKSI 1 (ATAS): DAFTAR MASTER ITEM CHECKLIST */}
       <Card
         title={
-          <span className="font-bold text-slate-900 text-base">
-            Daftar Master Item Equipment Checklist ({items.length} Item)
+          <span className="font-extrabold text-slate-900 text-base uppercase tracking-wider">
+            DAFTAR MASTER ITEM EQUIPMENT CHECKLIST ({items.length} ITEM)
           </span>
         }
         action={
@@ -363,8 +363,8 @@ export default function KelolaHydrantPage() {
       {/* SEKSI 2 (BAWAH): DAFTAR TITIK HYDRANT */}
       <Card
         title={
-          <span className="font-bold text-slate-900 text-base">
-            Daftar Titik Hydrant ({filteredHydrants.length} Titik)
+          <span className="font-extrabold text-slate-900 text-base uppercase tracking-wider">
+            DAFTAR TITIK HYDRANT ({filteredHydrants.length} TITIK)
           </span>
         }
         action={

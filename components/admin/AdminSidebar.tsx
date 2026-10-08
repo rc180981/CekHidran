@@ -29,43 +29,43 @@ export default function AdminSidebar({ user }: SidebarProps) {
   const links = [
     {
       href: '/dashboard',
-      label: 'Dashboard',
+      label: 'DASHBOARD PEMANTAUAN',
       icon: LayoutDashboard,
       allowed: can(user.role, 'lihat_dashboard'),
     },
     {
       href: '/dashboard/riwayat',
-      label: 'Riwayat Checksheet',
+      label: 'RIWAYAT CHECKSHEET',
       icon: History,
       allowed: can(user.role, 'lihat_riwayat_semua'),
     },
     {
       href: '/dashboard/temuan',
-      label: 'Temuan K3',
+      label: 'TEMUAN K3',
       icon: AlertTriangle,
       allowed: can(user.role, 'verifikasi_temuan') || can(user.role, 'lihat_riwayat_semua'),
     },
     {
       href: '/dashboard/hydrant',
-      label: 'Titik & Equipment',
+      label: 'TITIK & EQUIPMENT',
       icon: Flame,
       allowed: can(user.role, 'kelola_hydrant'),
     },
     {
       href: '/dashboard/pengguna',
-      label: 'Kelola Pengguna',
+      label: 'KELOLA PENGGUNA',
       icon: Users,
       allowed: can(user.role, 'kelola_pengguna'),
     },
     {
       href: '/dashboard/laporan',
-      label: 'Ekspor Laporan',
+      label: 'EKSPOR LAPORAN',
       icon: FileDown,
       allowed: can(user.role, 'ekspor_laporan'),
     },
     {
       href: '/dashboard/pengaturan',
-      label: 'Pengaturan',
+      label: 'PENGATURAN',
       icon: Settings,
       allowed: can(user.role, 'kelola_pengaturan'),
     },
@@ -84,9 +84,9 @@ export default function AdminSidebar({ user }: SidebarProps) {
 
       {/* Profil User */}
       <div className="px-5 py-4 border-b border-slate-700/40 bg-slate-800/40">
-        <p className="text-xs text-slate-400">Pengguna Aktif</p>
+        <p className="text-xs text-slate-400 uppercase font-semibold tracking-wider">PENGGUNA AKTIF</p>
         <p className="text-sm font-semibold text-white truncate">{user.name}</p>
-        <span className="inline-block mt-1 text-[11px] font-medium px-2 py-0.5 bg-primary/20 text-teal-300 rounded-md border border-primary/30">
+        <span className="inline-block mt-1 text-[11px] font-bold px-2 py-0.5 bg-primary/20 text-teal-300 rounded-md border border-primary/30 uppercase">
           {ROLE_LABEL[user.role]}
         </span>
       </div>
@@ -102,9 +102,9 @@ export default function AdminSidebar({ user }: SidebarProps) {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold tracking-wider transition ${
                   active
-                    ? 'bg-primary text-white font-semibold shadow-sm'
+                    ? 'bg-primary text-white font-bold shadow-sm'
                     : 'text-slate-300 hover:bg-sidebar-hover hover:text-white'
                 }`}
               >
@@ -125,10 +125,10 @@ export default function AdminSidebar({ user }: SidebarProps) {
             await signOut(auth);
             window.location.href = '/login';
           }}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-300 hover:bg-red-500/10 hover:text-red-200 transition"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold tracking-wider uppercase text-red-300 hover:bg-red-500/10 hover:text-red-200 transition"
         >
           <LogOut size={18} className="text-red-400" />
-          Keluar Sistem
+          KELUAR SISTEM
         </button>
       </div>
     </aside>

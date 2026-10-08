@@ -59,14 +59,14 @@ export default function PengaturanPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Pengaturan Sistem Cek Hidran</h1>
-        <p className="text-sm text-slate-600 mt-1">
-          Konfigurasi frekuensi pemeriksaan dan parameter operasional K3
+      <div className="pb-2 border-b border-slate-200/80">
+        <h1 className="text-2xl font-black tracking-wider text-slate-900 uppercase">PENGATURAN SISTEM CEK HIDRAN</h1>
+        <p className="text-xs sm:text-sm text-slate-500 mt-1 uppercase font-semibold">
+          KONFIGURASI FREKUENSI PEMERIKSAAN DAN PARAMETER OPERASIONAL K3
         </p>
       </div>
 
-      <Card title="Frekuensi Pemeriksaan Hydrant" className="max-w-xl">
+      <Card title="FREKUENSI PEMERIKSAAN HYDRANT" className="max-w-xl">
         <form onSubmit={handleSave} className="space-y-5">
           <p className="text-xs text-slate-600 leading-relaxed">
             Pilihan frekuensi menentukan periode acuan dashboard dan laporan dalam menghitung status

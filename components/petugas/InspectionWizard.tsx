@@ -14,7 +14,7 @@ import { syncQueue } from '@/lib/offline/sync';
 import type { CachedHydrant, ChecklistItem, PetugasBundle, CheckResultValue } from '@/lib/types';
 import { StatusBadge, LocationTag } from '@/components/ui';
 
-const STEPS = ['Info Hydrant', 'Foto Kondisi', 'Checklist'];
+const STEPS = ['INFO HYDRANT', 'FOTO KONDISI', 'CHECKLIST & TTD'];
 
 interface PhotoItem {
   blob: Blob;
@@ -315,9 +315,9 @@ export default function InspectionWizard({
         <div className="space-y-4">
           <div className="card p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-slate-900">Langkah 2: Foto Kondisi Sebelum Pemeriksaan</h2>
-              <span className="text-xs font-bold text-primary bg-primary-50 px-2.5 py-1 rounded-full">
-                {photos.length} / 3 Foto
+              <h2 className="text-sm font-extrabold text-slate-900 uppercase tracking-wider">LANGKAH 2: FOTO KONDISI SEBELUM PEMERIKSAAN</h2>
+              <span className="text-xs font-bold text-primary bg-primary-50 px-2.5 py-1 rounded-full uppercase">
+                {photos.length} / 3 FOTO
               </span>
             </div>
 
@@ -380,9 +380,9 @@ export default function InspectionWizard({
         <div className="space-y-4">
           <div className="card p-5 space-y-5">
             <div>
-              <h2 className="text-base font-bold text-slate-900">Langkah 3: Lembar Checklist & TTD</h2>
-              <p className="text-xs text-slate-500 mt-1">
-                Pilih kondisi setiap item equipment. Kondisi "Tidak baik" otomatis dicatat sebagai Temuan K3.
+              <h2 className="text-sm font-extrabold text-slate-900 uppercase tracking-wider">LANGKAH 3: LEMBAR CHECKLIST & TTD</h2>
+              <p className="text-xs text-slate-500 mt-1 uppercase font-semibold">
+                PILIH KONDISI SETIAP ITEM EQUIPMENT. KONDISI "TIDAK BAIK" OTOMATIS DICATAT SEBAGAI TEMUAN K3.
               </p>
             </div>
 

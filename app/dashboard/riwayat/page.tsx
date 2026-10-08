@@ -357,9 +357,9 @@ export default function RiwayatChecksheetPage() {
   return (
     <div className="space-y-6">
       <div className="pb-2 border-b border-slate-200/80">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Riwayat Checksheet Hydrant</h1>
-        <p className="text-xs sm:text-sm text-slate-500 mt-1">
-          Format lembar fisik resmi pemeriksaan per titik hydrant dan tabel matriks 31 hari
+        <h1 className="text-2xl font-black tracking-wider text-slate-900 uppercase">RIWAYAT CHECKSHEET HYDRANT</h1>
+        <p className="text-xs sm:text-sm text-slate-500 mt-1 uppercase font-semibold">
+          FORMAT LEMBAR FISIK RESMI PEMERIKSAAN PER TITIK HYDRANT DAN TABEL MATRIKS 31 HARI
         </p>
       </div>
 

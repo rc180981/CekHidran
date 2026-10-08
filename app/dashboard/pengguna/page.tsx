@@ -133,17 +133,17 @@ export default function KelolaPenggunaPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-slate-200/80">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Kelola Pengguna & Peran (RBAC)</h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Manajemen akun, hak akses sistem, dan penugasan lokasi gudang operasional
+          <h1 className="text-2xl font-black tracking-wider text-slate-900 uppercase">KELOLA PENGGUNA & PERAN (RBAC)</h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1 uppercase font-semibold">
+            MANAJEMEN AKUN, HAK AKSES SISTEM, DAN PENUGASAN LOKASI GUDANG OPERASIONAL
           </p>
         </div>
       </div>
 
       <Card
         title={
-          <span className="font-bold text-slate-900 text-base">
-            Daftar Pengguna Sistem ({profiles.length} Akun)
+          <span className="font-extrabold text-slate-900 text-base uppercase tracking-wider">
+            DAFTAR PENGGUNA SISTEM ({profiles.length} AKUN)
           </span>
         }
         action={

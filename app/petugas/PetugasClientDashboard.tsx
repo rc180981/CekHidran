@@ -99,11 +99,11 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
       <div className="card p-4 space-y-3">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs text-slate-500">Petugas Masuk</p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">PETUGAS MASUK</p>
             <p className="text-sm font-bold text-slate-800">{bundle.user.name}</p>
           </div>
-          <span className="text-xs font-semibold px-2.5 py-1 bg-primary-50 text-primary-800 rounded-full">
-            Frekuensi: {bundle.frequency === 'bulanan' ? 'Bulanan' : 'Harian'}
+          <span className="text-[11px] font-bold px-2.5 py-1 bg-primary-50 text-primary-800 rounded-full uppercase">
+            FREKUENSI: {bundle.frequency === 'bulanan' ? 'BULANAN' : 'HARIAN'}
           </span>
         </div>
 
@@ -115,15 +115,15 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
                 queue.length > 0 ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'
               }`}
             />
-            <span className="text-xs font-medium text-slate-700">
-              Antrean Offline: <strong>{queue.length}</strong>
+            <span className="text-xs font-semibold text-slate-700 uppercase">
+              ANTREAN OFFLINE: <strong>{queue.length}</strong>
             </span>
           </div>
           <button
             type="button"
             onClick={triggerSync}
             disabled={syncing || queue.length === 0}
-            className="btn-secondary text-xs min-h-[32px] px-2.5 py-1"
+            className="btn-secondary text-xs min-h-[32px] px-2.5 py-1 uppercase font-bold"
           >
             <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
             {syncing ? 'Sinkron…' : 'Sinkronkan'}
@@ -139,16 +139,16 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
 
       {/* Tombol Utama: Mulai Pemeriksaan */}
       <div>
-        <Link href="/petugas/periksa" className="btn-primary btn-lg w-full shadow-md text-base">
-          <QrCode size={22} /> Mulai Periksa Hydrant (Scan QR)
+        <Link href="/petugas/periksa" className="btn-primary btn-lg w-full shadow-md text-sm font-bold tracking-wider uppercase">
+          <QrCode size={20} /> MULAI PERIKSA HYDRANT (SCAN QR)
         </Link>
       </div>
 
       {/* Daftar Titik Hydrant Ditugaskan */}
       <div className="space-y-3 pt-2">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-slate-900">Titik Hydrant yang Ditugaskan</h2>
-          <span className="text-xs font-medium text-slate-500">{bundle.hydrants.length} Titik</span>
+          <h2 className="text-xs font-extrabold text-slate-900 tracking-wider uppercase">TITIK HYDRANT YANG DITUGASKAN</h2>
+          <span className="text-xs font-bold text-slate-500 uppercase">{bundle.hydrants.length} TITIK</span>
         </div>
 
         <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">

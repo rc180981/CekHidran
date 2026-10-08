@@ -506,9 +506,9 @@ export default function EksporLaporanPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="pb-2 border-b border-slate-200/80">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Ekspor Laporan Checksheet</h1>
-        <p className="text-xs sm:text-sm text-slate-500 mt-1">
-          Unduh laporan checksheet pemeriksaan format resmi PDF (format lembar fisik) atau format Excel untuk rekapitulasi data K3
+        <h1 className="text-2xl font-black tracking-wider text-slate-900 uppercase">EKSPOR LAPORAN CHECKSHEET</h1>
+        <p className="text-xs sm:text-sm text-slate-500 mt-1 uppercase font-semibold">
+          UNDUH LAPORAN CHECKSHEET PEMERIKSAAN FORMAT RESMI PDF (FORMAT LEMBAR FISIK) ATAU FORMAT EXCEL UNTUK REKAPITULASI DATA K3
         </p>
       </div>
 
@@ -521,7 +521,7 @@ export default function EksporLaporanPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* KARTU 1: EKSPOR PDF */}
-        <Card title="Ekspor PDF Checksheet (Format Lembar Fisik K3)">
+        <Card title="EKSPOR PDF CHECKSHEET (FORMAT LEMBAR FISIK K3)">
           <form onSubmit={handleExportPdf} className="space-y-4">
             <div>
               <label className="label text-xs font-bold text-slate-700 mb-1 block">Filter Gudang</label>
@@ -589,7 +589,7 @@ export default function EksporLaporanPage() {
         </Card>
 
         {/* KARTU 2: EKSPOR EXCEL */}
-        <Card title="Ekspor Excel Rekapitulasi Checksheet">
+        <Card title="EKSPOR EXCEL REKAPITULASI CHECKSHEET">
           <form onSubmit={handleExportExcel} className="space-y-4">
             <div>
               <label className="label text-xs font-bold text-slate-700 mb-1 block">Pilih Cakupan Gudang</label>

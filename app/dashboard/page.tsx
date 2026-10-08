@@ -183,14 +183,14 @@ export default function DashboardPage() {
       {/* Header Dashboard */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-slate-200/80">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Dashboard Pemantauan Hydrant</h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Status pemeriksaan periode <strong className="text-slate-800 font-semibold">{period.label}</strong> ({period.short})
+          <h1 className="text-2xl font-black tracking-wider text-slate-900 uppercase">DASHBOARD PEMANTAUAN HYDRANT</h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1 uppercase font-semibold">
+            STATUS PEMERIKSAAN PERIODE <strong className="text-slate-800 font-bold">{period.label.toUpperCase()}</strong> ({period.short.toUpperCase()})
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs font-bold px-3 py-1.5 rounded-xl bg-teal-50 border border-teal-200 text-teal-800 shadow-sm">
-            Frekuensi: {freq === 'bulanan' ? 'Bulanan' : 'Harian'}
+          <span className="text-xs font-bold px-3 py-1.5 rounded-xl bg-teal-50 border border-teal-200 text-teal-800 shadow-sm uppercase">
+            FREKUENSI: {freq === 'bulanan' ? 'BULANAN' : 'HARIAN'}
           </span>
         </div>
       </div>
@@ -235,7 +235,7 @@ export default function DashboardPage() {
       <Card
         title={
           <div className="flex items-center justify-between w-full">
-            <span className="font-bold text-slate-900 text-base">Progres Pemeriksaan Per Gudang</span>
+            <span className="font-extrabold text-slate-900 text-base uppercase tracking-wider">PROGRES PEMERIKSAAN PER GUDANG</span>
             <span className="text-xs text-slate-400 font-normal">Klik gudang untuk rincian titik</span>
           </div>
         }
@@ -288,8 +288,8 @@ export default function DashboardPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full gap-3">
             <div className="flex items-center gap-2">
               <MapPin size={18} className="text-primary" />
-              <span className="font-bold text-slate-900 text-base">
-                Denah & Matriks Titik Hydrant Interaktif ({mapFilteredHydrants.length} Titik)
+              <span className="font-extrabold text-slate-900 text-base uppercase tracking-wider">
+                DENAH & MATRIKS TITIK HYDRANT INTERAKTIF ({mapFilteredHydrants.length} TITIK)
               </span>
             </div>
 
@@ -397,10 +397,10 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between w-full">
                 <div className="flex items-center gap-2">
                   <Wrench size={18} className="text-primary" />
-                  <span className="font-bold text-slate-900 text-base">Analitik Kesehatan Komponen</span>
+                  <span className="font-extrabold text-slate-900 text-base uppercase tracking-wider">ANALITIK KESEHATAN KOMPONEN</span>
                 </div>
-                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                  {totalDefects} Total Kerusakan Dicatat
+                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 uppercase">
+                  {totalDefects} KERUSAKAN DICATAT
                 </span>
               </div>
             }
@@ -464,9 +464,9 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between w-full">
                 <div className="flex items-center gap-2">
                   <Activity size={18} className="text-primary" />
-                  <span className="font-bold text-slate-900 text-base">Aktivitas Pemeriksaan Terkini</span>
+                  <span className="font-extrabold text-slate-900 text-base uppercase tracking-wider">AKTIVITAS PEMERIKSAAN TERKINI</span>
                 </div>
-                <span className="text-[11px] text-slate-400">Real-time</span>
+                <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">REAL-TIME</span>
               </div>
             }
           >
@@ -527,18 +527,18 @@ export default function DashboardPage() {
         title={
           <div className="flex items-center justify-between w-full">
             <div className="flex items-center gap-2">
-              <span className="font-bold text-slate-900 text-base">Temuan K3 Terbaru</span>
+              <span className="font-extrabold text-slate-900 text-base uppercase tracking-wider">TEMUAN K3 TERBARU</span>
               {openFindingsCount > 0 && (
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-800">
-                  {openFindingsCount} Aktif
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-800 uppercase">
+                  {openFindingsCount} AKTIF
                 </span>
               )}
             </div>
             <Link
               href="/dashboard/temuan"
-              className="text-xs font-bold text-primary hover:underline inline-flex items-center gap-1"
+              className="text-xs font-bold text-primary hover:underline inline-flex items-center gap-1 uppercase tracking-wider"
             >
-              Lihat Semua Temuan <ArrowRight size={14} />
+              LIHAT SEMUA TEMUAN <ArrowRight size={14} />
             </Link>
           </div>
         }

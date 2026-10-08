@@ -178,7 +178,7 @@ function PeriksaContent() {
           >
             <ArrowLeft size={18} />
           </Link>
-          <h1 className="text-base font-bold text-slate-800">Pemeriksaan Hydrant</h1>
+          <h1 className="text-base font-extrabold text-slate-800 tracking-wider uppercase">PEMERIKSAAN HYDRANT</h1>
         </div>
 
         <InspectionWizard initialBundle={bundle} initialQr={qr} />
