@@ -8,11 +8,10 @@ import {
   RefreshCw,
   CheckCircle2,
   Clock,
-  AlertCircle,
-  Building2,
   MapPin,
   Calendar,
-  Check,
+  User,
+  ArrowRight,
 } from 'lucide-react';
 import { listQueue, setBundle, QUEUE_EVENT } from '@/lib/offline/db';
 import { syncQueue } from '@/lib/offline/sync';
@@ -56,9 +55,6 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
 
   // Inspeksi yang dilakukan hari ini (dari server Firestore)
   const [todayInspections, setTodayInspections] = useState<any[]>([]);
-
-  // State pilihan gudang (droplist)
-  const [selectedWarehouse, setSelectedWarehouse] = useState<string>('all');
 
   // Tab aktif tampilan daftar: 'checked' (default) atau 'unchecked'
   const [activeTab, setActiveTab] = useState<'checked' | 'unchecked'>('checked');
@@ -142,7 +138,13 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
   const combinedInspectedMap = useMemo(() => {
     const map = new Map<
       string,
-      { inspectedAt: string; notes?: string; status?: string; isOfflineQueue?: boolean }
+      {
+        inspectedAt: string;
+        notes?: string;
+        status?: string;
+        isOfflineQueue?: boolean;
+        inspectorName?: string;
+      }
     >();
 
     // 1. Dari Firestore hari ini
@@ -154,6 +156,7 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
           notes: ins.notes,
           status: ins.status,
           isOfflineQueue: false,
+          inspectorName: ins.user_name || ins.userName || bundle.user.name,
         });
       }
     });
@@ -167,12 +170,13 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
           notes: q.notes,
           status: 'antrean_offline',
           isOfflineQueue: true,
+          inspectorName: bundle.user.name,
         });
       }
     });
 
     return map;
-  }, [todayInspections, queue, todayStr]);
+  }, [todayInspections, queue, todayStr, bundle.user.name]);
 
   // Daftar titik yang SUDAH dicek hari ini (dari seluruh penugasan petugas)
   const checkedHydrants = useMemo(() => {
@@ -186,22 +190,19 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
           notes: info?.notes,
           status: info?.status,
           isOfflineQueue: info?.isOfflineQueue,
+          inspectorName: info?.inspectorName || bundle.user.name,
         };
       })
       .sort((a, b) => (b.inspectedAt || '').localeCompare(a.inspectedAt || ''));
-  }, [bundle.hydrants, combinedInspectedMap]);
+  }, [bundle.hydrants, combinedInspectedMap, bundle.user.name]);
 
   // Daftar titik yang BELUM dicek hari ini
   const uncheckedHydrants = useMemo(() => {
     return bundle.hydrants.filter((h) => !combinedInspectedMap.has(h.id));
   }, [bundle.hydrants, combinedInspectedMap]);
 
-  // Persentase kelengkapan
-  const totalPoints = bundle.hydrants.length;
   const checkedCount = checkedHydrants.length;
   const uncheckedCount = uncheckedHydrants.length;
-  const percentComplete =
-    totalPoints > 0 ? Math.round((checkedCount / totalPoints) * 100) : 0;
 
   return (
     <div className="space-y-3.5">
@@ -223,7 +224,6 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
 
           {/* Sisi Kanan: Antrean Offline & Tombol Keluar */}
           <div className="flex items-center gap-1.5">
-            {/* Widget Antrean Offline di Header */}
             <button
               type="button"
               onClick={triggerSync}
@@ -300,92 +300,83 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
       <div>
         <Link
           href="/petugas/periksa"
-          className="btn-primary btn-lg w-full shadow-md text-sm font-extrabold tracking-wider uppercase gap-2.5 justify-center"
+          className="group relative flex items-center justify-between overflow-hidden rounded-2xl bg-gradient-to-r from-primary to-teal-800 p-3.5 text-white shadow-md shadow-primary/25 transition-all duration-200 hover:shadow-lg hover:shadow-primary/30 active:scale-[0.99]"
         >
-          <QrCode size={20} className="shrink-0" />
-          MULAI PERIKSA HYDRANT (SCAN QR)
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white backdrop-blur-xs ring-1 ring-white/20 transition-transform group-hover:scale-105">
+              <QrCode size={24} />
+            </div>
+            <div className="text-left">
+              <h2 className="text-sm font-black tracking-wide uppercase leading-tight text-white">
+                MULAI PERIKSA HYDRANT
+              </h2>
+              <p className="mt-0.5 text-[10px] font-bold tracking-wider uppercase text-teal-100/90">
+                PINDAI QR CODE TITIK PEMERIKSAAN
+              </p>
+            </div>
+          </div>
+
+          <div className="shrink-0 pl-1">
+            <span className="inline-flex items-center gap-1 rounded-xl bg-white/20 px-2.5 py-1 text-[11px] font-black uppercase tracking-wider text-white backdrop-blur-xs ring-1 ring-white/25">
+              SCAN <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5" />
+            </span>
+          </div>
         </Link>
       </div>
 
-      {/* 4. CARD STATISTIK: SUDAH DI CEK & BELUM DI CEK */}
-      <div className="space-y-2">
-        <div className="grid grid-cols-2 gap-2.5">
-          {/* Card Sudah Di Cek */}
-          <div
-            onClick={() => setActiveTab('checked')}
-            className={`card p-3 space-y-1.5 border-2 transition cursor-pointer ${
-              activeTab === 'checked'
-                ? 'border-emerald-500 bg-emerald-50/70 shadow-sm'
-                : 'border-slate-200 bg-white hover:border-emerald-200'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-black text-emerald-800 uppercase tracking-wider">
-                SUDAH DI CEK
-              </span>
-              <CheckCircle2 size={16} className="text-emerald-600" />
-            </div>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-2xl font-black text-emerald-700 leading-none">
-                {checkedCount}
-              </span>
-              <span className="text-[11px] font-bold text-emerald-600 uppercase">
-                / {totalPoints} TITIK
-              </span>
-            </div>
-            <p className="text-[10px] font-bold text-emerald-700/80 uppercase tracking-wide">
-              HARI INI TERPERIKSA
-            </p>
+      {/* 4. CARD STATISTIK: SUDAH DI CEK & BELUM DI CEK (TANPA TOTAL TITIK) */}
+      <div className="grid grid-cols-2 gap-2.5">
+        {/* Card Sudah Di Cek */}
+        <div
+          onClick={() => setActiveTab('checked')}
+          className={`card p-3 space-y-1 border-2 transition cursor-pointer ${
+            activeTab === 'checked'
+              ? 'border-emerald-500 bg-emerald-50/70 shadow-sm'
+              : 'border-slate-200 bg-white hover:border-emerald-200'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-black text-emerald-800 uppercase tracking-wider">
+              SUDAH DI CEK
+            </span>
+            <CheckCircle2 size={16} className="text-emerald-600" />
           </div>
-
-          {/* Card Belum Di Cek */}
-          <div
-            onClick={() => setActiveTab('unchecked')}
-            className={`card p-3 space-y-1.5 border-2 transition cursor-pointer ${
-              activeTab === 'unchecked'
-                ? 'border-amber-500 bg-amber-50/70 shadow-sm'
-                : 'border-slate-200 bg-white hover:border-amber-200'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-black text-amber-800 uppercase tracking-wider">
-                BELUM DI CEK
-              </span>
-              <Clock size={16} className="text-amber-600" />
-            </div>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-2xl font-black text-amber-700 leading-none">
-                {uncheckedCount}
-              </span>
-              <span className="text-[11px] font-bold text-amber-600 uppercase">
-                / {totalPoints} TITIK
-              </span>
-            </div>
-            <p className="text-[10px] font-bold text-amber-700/80 uppercase tracking-wide">
-              SISA BELUM DI CEK
-            </p>
+          <div className="text-2xl font-black text-emerald-700 leading-tight">
+            {checkedCount}
           </div>
+          <p className="text-[10px] font-bold text-emerald-700/80 uppercase tracking-wide">
+            HARI INI TERPERIKSA
+          </p>
         </div>
 
-        {/* Progress Bar Kelengkapan */}
-        <div className="rounded-lg bg-slate-100 p-2 border border-slate-200/80 space-y-1">
-          <div className="flex items-center justify-between text-[11px] font-extrabold uppercase">
-            <span className="text-slate-600">PROGRESS PENGECEKAN HARI INI:</span>
-            <span className="text-teal-900 font-black">{percentComplete}% SELESAI</span>
+        {/* Card Belum Di Cek */}
+        <div
+          onClick={() => setActiveTab('unchecked')}
+          className={`card p-3 space-y-1 border-2 transition cursor-pointer ${
+            activeTab === 'unchecked'
+              ? 'border-amber-500 bg-amber-50/70 shadow-sm'
+              : 'border-slate-200 bg-white hover:border-amber-200'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-black text-amber-800 uppercase tracking-wider">
+              BELUM DI CEK
+            </span>
+            <Clock size={16} className="text-amber-600" />
           </div>
-          <div className="h-2 w-full rounded-full bg-slate-200 overflow-hidden">
-            <div
-              className="h-full bg-primary transition-all duration-300 rounded-full"
-              style={{ width: `${percentComplete}%` }}
-            />
+          <div className="text-2xl font-black text-amber-700 leading-tight">
+            {uncheckedCount}
           </div>
+          <p className="text-[10px] font-bold text-amber-700/80 uppercase tracking-wide">
+            SISA BELUM DI CEK
+          </p>
         </div>
       </div>
 
       {/* 5. DAFTAR TITIK HYDRANT */}
-      <div className="space-y-2 pt-1">
+      <div className="space-y-2 pt-0.5">
         {/* Tab Toggle: Sudah Di Cek vs Belum Di Cek */}
-        <div className="flex items-center justify-between border-b border-slate-200 pb-2 px-0.5">
+        <div className="flex items-center justify-start border-b border-slate-200 pb-2 px-0.5">
           <div className="flex items-center gap-1.5">
             <button
               type="button"
@@ -410,9 +401,6 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
               BELUM DI CEK ({uncheckedCount})
             </button>
           </div>
-          <span className="text-[10px] font-black text-slate-400 uppercase">
-            TOTAL {totalPoints} TITIK
-          </span>
         </div>
 
         {/* LIST KONTEN TAB 1: TITIK YANG SUDAH DI CEK HARI INI */}
@@ -421,15 +409,15 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
             {checkedHydrants.map((h) => (
               <div
                 key={h.id}
-                className="p-3.5 rounded-xl border border-emerald-200 bg-white hover:border-emerald-300 transition space-y-2 shadow-2xs"
+                className="p-3.5 rounded-2xl border border-emerald-200/90 bg-white hover:border-emerald-300 transition space-y-2 shadow-2xs"
               >
-                {/* Baris 1: Nomor, Gudang & Lokasi Tag */}
-                <div className="flex items-center justify-between gap-2">
+                {/* Baris 1: Nomor Hydrant, Gudang & Lokasi Tag */}
+                <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-black text-slate-900 uppercase tracking-wide">
                       {h.number}
                     </span>
-                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-teal-50 text-teal-800 border border-teal-200 uppercase">
+                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-teal-50 text-teal-800 border border-teal-200 uppercase">
                       GUDANG {h.warehouse_name.replace(/^gudang\s+/i, '').trim()}
                     </span>
                   </div>
@@ -442,26 +430,45 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
                   <span className="truncate font-medium">{h.location_name}</span>
                 </p>
 
-                {/* Baris 3: Tanggal & Waktu Pengecekan Hari Ini */}
-                <div className="rounded-lg bg-emerald-50/80 border border-emerald-200/90 px-2.5 py-1.5 flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-1.5 text-emerald-900 font-extrabold">
-                    <Calendar size={13} className="text-emerald-700 shrink-0" />
-                    <span>DICEK: {formatCheckDateTime(h.inspectedAt)}</span>
+                {/* Baris 3: Info Pengecekan (Nama Petugas, Waktu & Status) */}
+                <div className="rounded-xl bg-emerald-50/70 border border-emerald-200/80 p-2.5 space-y-1.5 text-xs">
+                  {/* Nama Petugas Pemeriksa */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <User size={13} className="text-emerald-700 shrink-0" />
+                      <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                        PETUGAS:
+                      </span>
+                      <span className="font-extrabold text-slate-900 uppercase text-[11px]">
+                        {h.inspectorName}
+                      </span>
+                    </div>
+                    {h.isOfflineQueue ? (
+                      <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 uppercase">
+                        OFFLINE (LOKAL)
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 uppercase">
+                        TERVERIFIKASI
+                      </span>
+                    )}
                   </div>
-                  {h.isOfflineQueue ? (
-                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 uppercase">
-                      OFFLINE (LOKAL)
+
+                  {/* Tanggal & Waktu Pemeriksaan */}
+                  <div className="flex items-center gap-1.5 text-emerald-950 border-t border-emerald-100/80 pt-1.5">
+                    <Calendar size={13} className="text-emerald-700 shrink-0" />
+                    <span className="text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider">
+                      WAKTU:
                     </span>
-                  ) : (
-                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 uppercase">
-                      TERVERIFIKASI
+                    <span className="text-[11px] font-extrabold">
+                      {formatCheckDateTime(h.inspectedAt)}
                     </span>
-                  )}
+                  </div>
                 </div>
 
                 {/* Catatan jika ada */}
                 {h.notes && (
-                  <p className="text-[11px] text-slate-600 italic bg-slate-50 p-1.5 rounded border border-slate-100">
+                  <p className="text-[11px] text-slate-600 italic bg-slate-50 p-2 rounded-lg border border-slate-100">
                     Catatan: {h.notes}
                   </p>
                 )}
@@ -475,48 +482,44 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
                   BELUM ADA TITIK HYDRANT YANG DI CEK HARI INI
                 </p>
                 <p className="text-[11px] text-slate-500">
-                  Silakan tekan tombol <strong>"MULAI PERIKSA HYDRANT (SCAN QR)"</strong> di atas untuk mulai melakukan inspeksi.
+                  Silakan tekan tombol <strong>"MULAI PERIKSA HYDRANT"</strong> di atas untuk mulai melakukan inspeksi.
                 </p>
               </div>
             )}
           </div>
         )}
 
-        {/* LIST KONTEN TAB 2: TITIK YANG BELUM DI CEK */}
+        {/* LIST KONTEN TAB 2: TITIK YANG BELUM DI CEK (TANPA LINK PERIKSA SEKARANG) */}
         {activeTab === 'unchecked' && (
           <div className="space-y-2 max-h-[390px] overflow-y-auto pr-1">
             {uncheckedHydrants.map((h) => (
               <div
                 key={h.id}
-                className="p-3.5 rounded-xl border border-slate-200 bg-white hover:border-primary-200 transition space-y-1.5 shadow-2xs"
+                className="p-3.5 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 transition space-y-2 shadow-2xs"
               >
-                <div className="flex items-center justify-between gap-2">
+                {/* Baris 1: Nomor Hydrant, Gudang & Lokasi Tag */}
+                <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-black text-slate-900 uppercase tracking-wide">
                       {h.number}
                     </span>
-                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 uppercase">
+                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 uppercase">
                       GUDANG {h.warehouse_name.replace(/^gudang\s+/i, '').trim()}
                     </span>
                   </div>
                   <LocationTag type={h.location_type} />
                 </div>
 
+                {/* Baris 2: Nama Lokasi */}
                 <p className="text-xs text-slate-600 flex items-center gap-1.5">
                   <MapPin size={13} className="text-slate-400 shrink-0" />
                   <span className="truncate font-medium">{h.location_name}</span>
                 </p>
 
-                <div className="pt-0.5 flex items-center justify-between text-[11px] text-amber-700 font-bold">
-                  <span className="flex items-center gap-1">
-                    <Clock size={12} className="text-amber-500" /> Belum Diperiksa Hari Ini
-                  </span>
-                  <Link
-                    href="/petugas/periksa"
-                    className="text-[10px] font-black text-primary uppercase underline"
-                  >
-                    Periksa Sekarang &rarr;
-                  </Link>
+                {/* Baris 3: Status Saja (Tautan Periksa Sekarang telah dihilangkan) */}
+                <div className="pt-0.5 flex items-center gap-1.5 text-[11px] text-amber-700 font-bold">
+                  <Clock size={12} className="text-amber-500 shrink-0" />
+                  <span>Belum Diperiksa Hari Ini</span>
                 </div>
               </div>
             ))}
@@ -528,7 +531,7 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
                   SEMUA TITIK TELAH SELESAI DI CEK HARI INI!
                 </p>
                 <p className="text-[11px] text-emerald-800">
-                  Luar biasa! Seluruh {totalPoints} titik hydrant telah selesai diperiksa hari ini.
+                  Luar biasa! Seluruh titik hydrant telah selesai diperiksa hari ini.
                 </p>
               </div>
             )}
