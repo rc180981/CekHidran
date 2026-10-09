@@ -205,25 +205,25 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
   const uncheckedCount = uncheckedHydrants.length;
 
   return (
-    <div className="space-y-3.5">
+    <div className="space-y-3 sm:space-y-3.5">
       {/* 1. HEADER ATAS DENGAN ANTREAN OFFLINE TERINTEGRASI */}
-      <div className="border-b border-slate-200/70 pb-3 space-y-2">
+      <div className="border-b border-slate-200/70 pb-2.5 space-y-2">
         <div className="flex items-center justify-between gap-2">
           {/* Logo & Judul */}
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 min-w-0">
             <Logo size={36} />
-            <div>
-              <h1 className="text-base font-extrabold text-slate-900 leading-tight tracking-wider uppercase">
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-lg font-black text-slate-900 leading-tight tracking-wider uppercase truncate">
                 CEK HIDRAN
               </h1>
-              <p className="text-[10px] font-bold text-slate-500 tracking-wider uppercase">
-                PETUGAS LAPANGAN
+              <p className="text-[10px] sm:text-[11px] font-bold text-slate-500 tracking-wider uppercase truncate">
+                ANTARMUKA PETUGAS
               </p>
             </div>
           </div>
 
           {/* Sisi Kanan: Antrean Offline & Tombol Keluar */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               type="button"
               onClick={triggerSync}
@@ -233,7 +233,7 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
                   ? `${queue.length} antrean offline siap disinkronkan`
                   : 'Tidak ada antrean offline'
               }
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-extrabold transition shadow-2xs ${
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-black transition shadow-2xs select-none active:scale-95 ${
                 queue.length > 0
                   ? 'bg-amber-50 border-amber-300 text-amber-900 hover:bg-amber-100'
                   : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
@@ -244,7 +244,7 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
                   queue.length > 0 ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'
                 }`}
               />
-              <span className="text-[10px] uppercase tracking-wide">
+              <span className="text-[10px] sm:text-xs uppercase tracking-wide">
                 OFFLINE: <strong>{queue.length}</strong>
               </span>
               <RefreshCw
@@ -260,7 +260,7 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
         </div>
 
         {syncMsg && (
-          <p className="text-[11px] text-slate-600 bg-slate-100 px-2.5 py-1.5 rounded-lg text-center font-medium">
+          <p className="text-[11px] text-slate-600 bg-slate-100 px-2.5 py-1.5 rounded-lg text-center font-medium leading-relaxed">
             {syncMsg}
           </p>
         )}
@@ -271,27 +271,27 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-medium text-emerald-900 flex items-start gap-2.5 shadow-2xs">
           <CheckCircle2 size={16} className="text-emerald-700 shrink-0 mt-0.5" />
           <div>
-            <strong className="font-extrabold tracking-wide uppercase">
+            <strong className="font-black tracking-wide uppercase text-xs">
               PEMERIKSAAN BERHASIL DISIMPAN!
             </strong>
-            <p className="mt-0.5 text-emerald-800 text-[11px]">
+            <p className="mt-0.5 text-emerald-800 text-[11px] leading-snug">
               Data pemeriksaan telah tercatat dan tersimpan dengan aman (lokal / server).
             </p>
           </div>
         </div>
       )}
 
-      {/* 2. INFORMASI SEDERHANA: NAMA PETUGAS & FREKUENSI */}
-      <div className="flex items-center justify-between px-1 pt-0.5">
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+      {/* 2. INFORMASI IDENTITAS PETUGAS & FREKUENSI */}
+      <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-white border border-slate-200/80 shadow-2xs">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider shrink-0">
             PETUGAS:
           </span>
-          <span className="text-sm font-black text-slate-900 uppercase tracking-wide">
+          <span className="text-xs sm:text-sm font-black text-slate-900 uppercase truncate tracking-wide">
             {bundle.user.name}
           </span>
         </div>
-        <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-teal-50 text-teal-800 border border-teal-200 uppercase tracking-wider">
+        <span className="text-[10px] sm:text-[11px] font-black px-2.5 py-0.5 rounded-full bg-teal-50 text-teal-800 border border-teal-200 uppercase tracking-wider shrink-0 whitespace-nowrap">
           FREKUENSI: {bundle.frequency === 'bulanan' ? 'BULANAN' : 'HARIAN'}
         </span>
       </div>
@@ -300,36 +300,36 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
       <div>
         <Link
           href="/petugas/periksa"
-          className="group relative flex items-center justify-between overflow-hidden rounded-2xl bg-gradient-to-r from-primary to-teal-800 p-3.5 text-white shadow-md shadow-primary/25 transition-all duration-200 hover:shadow-lg hover:shadow-primary/30 active:scale-[0.99]"
+          className="group relative flex items-center justify-between overflow-hidden rounded-2xl bg-gradient-to-r from-primary to-teal-800 p-3 sm:p-3.5 text-white shadow-md shadow-primary/25 transition-all duration-200 hover:shadow-lg hover:shadow-primary/30 active:scale-[0.99]"
         >
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white backdrop-blur-xs ring-1 ring-white/20 transition-transform group-hover:scale-105">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white backdrop-blur-xs ring-1 ring-white/20 transition-transform group-hover:scale-105">
               <QrCode size={24} />
             </div>
-            <div className="text-left">
-              <h2 className="text-sm font-black tracking-wide uppercase leading-tight text-white">
+            <div className="text-left min-w-0">
+              <h2 className="text-xs sm:text-sm font-black tracking-wide uppercase leading-tight text-white truncate">
                 MULAI PERIKSA HYDRANT
               </h2>
-              <p className="mt-0.5 text-[10px] font-bold tracking-wider uppercase text-teal-100/90">
+              <p className="mt-0.5 text-[10px] sm:text-[11px] font-bold tracking-wider uppercase text-teal-100/90 truncate">
                 PINDAI QR CODE TITIK PEMERIKSAAN
               </p>
             </div>
           </div>
 
           <div className="shrink-0 pl-1">
-            <span className="inline-flex items-center gap-1 rounded-xl bg-white/20 px-2.5 py-1 text-[11px] font-black uppercase tracking-wider text-white backdrop-blur-xs ring-1 ring-white/25">
+            <span className="inline-flex items-center gap-1 rounded-xl bg-white/20 px-2.5 py-1 text-[10px] sm:text-xs font-black uppercase tracking-wider text-white backdrop-blur-xs ring-1 ring-white/25">
               SCAN <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5" />
             </span>
           </div>
         </Link>
       </div>
 
-      {/* 4. CARD STATISTIK: SUDAH DI CEK & BELUM DI CEK (TANPA TOTAL TITIK) */}
-      <div className="grid grid-cols-2 gap-2.5">
+      {/* 4. CARD STATISTIK: SUDAH DI CEK & BELUM DI CEK (RESPONSIF & PRESISI) */}
+      <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
         {/* Card Sudah Di Cek */}
         <div
           onClick={() => setActiveTab('checked')}
-          className={`card p-3 space-y-1 border-2 transition cursor-pointer ${
+          className={`card p-3 sm:p-3.5 space-y-1 border-2 transition cursor-pointer select-none active:scale-[0.98] ${
             activeTab === 'checked'
               ? 'border-emerald-500 bg-emerald-50/70 shadow-sm'
               : 'border-slate-200 bg-white hover:border-emerald-200'
@@ -339,9 +339,9 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
             <span className="text-[11px] font-black text-emerald-800 uppercase tracking-wider">
               SUDAH DI CEK
             </span>
-            <CheckCircle2 size={16} className="text-emerald-600" />
+            <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
           </div>
-          <div className="text-2xl font-black text-emerald-700 leading-tight">
+          <div className="text-2xl sm:text-3xl font-black text-emerald-700 leading-none my-1 tabular-nums">
             {checkedCount}
           </div>
           <p className="text-[10px] font-bold text-emerald-700/80 uppercase tracking-wide">
@@ -352,7 +352,7 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
         {/* Card Belum Di Cek */}
         <div
           onClick={() => setActiveTab('unchecked')}
-          className={`card p-3 space-y-1 border-2 transition cursor-pointer ${
+          className={`card p-3 sm:p-3.5 space-y-1 border-2 transition cursor-pointer select-none active:scale-[0.98] ${
             activeTab === 'unchecked'
               ? 'border-amber-500 bg-amber-50/70 shadow-sm'
               : 'border-slate-200 bg-white hover:border-amber-200'
@@ -362,9 +362,9 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
             <span className="text-[11px] font-black text-amber-800 uppercase tracking-wider">
               BELUM DI CEK
             </span>
-            <Clock size={16} className="text-amber-600" />
+            <Clock size={16} className="text-amber-600 shrink-0" />
           </div>
-          <div className="text-2xl font-black text-amber-700 leading-tight">
+          <div className="text-2xl sm:text-3xl font-black text-amber-700 leading-none my-1 tabular-nums">
             {uncheckedCount}
           </div>
           <p className="text-[10px] font-bold text-amber-700/80 uppercase tracking-wide">
@@ -375,80 +375,82 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
 
       {/* 5. DAFTAR TITIK HYDRANT */}
       <div className="space-y-2 pt-0.5">
-        {/* Tab Toggle: Sudah Di Cek vs Belum Di Cek */}
-        <div className="flex items-center justify-start border-b border-slate-200 pb-2 px-0.5">
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setActiveTab('checked')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold uppercase transition ${
-                activeTab === 'checked'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              ✓ SUDAH DI CEK ({checkedCount})
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('unchecked')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold uppercase transition ${
-                activeTab === 'unchecked'
-                  ? 'bg-amber-600 text-white shadow-xs'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              BELUM DI CEK ({uncheckedCount})
-            </button>
-          </div>
+        {/* Tab Toggle: Segmented Control 50% - 50% Otomatis Presisi di Mobile */}
+        <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-200/70 rounded-xl border border-slate-300/60">
+          <button
+            type="button"
+            onClick={() => setActiveTab('checked')}
+            className={`py-2 px-1 text-center text-xs font-black uppercase rounded-lg transition-all flex items-center justify-center gap-1.5 select-none ${
+              activeTab === 'checked'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 bg-transparent'
+            }`}
+          >
+            <CheckCircle2 size={13} className="shrink-0" />
+            <span className="truncate">SUDAH DI CEK ({checkedCount})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('unchecked')}
+            className={`py-2 px-1 text-center text-xs font-black uppercase rounded-lg transition-all flex items-center justify-center gap-1.5 select-none ${
+              activeTab === 'unchecked'
+                ? 'bg-amber-600 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 bg-transparent'
+            }`}
+          >
+            <Clock size={13} className="shrink-0" />
+            <span className="truncate">BELUM DI CEK ({uncheckedCount})</span>
+          </button>
         </div>
 
         {/* LIST KONTEN TAB 1: TITIK YANG SUDAH DI CEK HARI INI */}
         {activeTab === 'checked' && (
-          <div className="space-y-2 max-h-[390px] overflow-y-auto pr-1">
+          <div className="space-y-2 max-h-[420px] overflow-y-auto pr-0.5">
             {checkedHydrants.map((h) => (
               <div
                 key={h.id}
-                className="p-3.5 rounded-2xl border border-emerald-200/90 bg-white hover:border-emerald-300 transition space-y-2 shadow-2xs"
+                className="p-3 sm:p-3.5 rounded-2xl border border-emerald-200/90 bg-white hover:border-emerald-300 transition space-y-2 shadow-2xs"
               >
                 {/* Baris 1: Nomor Hydrant, Gudang & Lokasi Tag */}
                 <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-black text-slate-900 uppercase tracking-wide">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-sm sm:text-base font-black text-slate-900 uppercase tracking-wide shrink-0">
                       {h.number}
                     </span>
-                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-teal-50 text-teal-800 border border-teal-200 uppercase">
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-teal-50 text-teal-800 border border-teal-200 uppercase tracking-wider truncate">
                       GUDANG {h.warehouse_name.replace(/^gudang\s+/i, '').trim()}
                     </span>
                   </div>
-                  <LocationTag type={h.location_type} />
+                  <div className="shrink-0">
+                    <LocationTag type={h.location_type} />
+                  </div>
                 </div>
 
                 {/* Baris 2: Nama Lokasi */}
-                <p className="text-xs text-slate-600 flex items-center gap-1.5">
+                <p className="text-xs text-slate-600 font-medium flex items-center gap-1.5 leading-snug">
                   <MapPin size={13} className="text-slate-400 shrink-0" />
-                  <span className="truncate font-medium">{h.location_name}</span>
+                  <span className="truncate">{h.location_name}</span>
                 </p>
 
                 {/* Baris 3: Info Pengecekan (Nama Petugas, Waktu & Status) */}
-                <div className="rounded-xl bg-emerald-50/70 border border-emerald-200/80 p-2.5 space-y-1.5 text-xs">
+                <div className="rounded-xl bg-emerald-50/60 border border-emerald-200/80 p-2.5 space-y-1.5 text-xs">
                   {/* Nama Petugas Pemeriksa */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
+                  <div className="flex items-center justify-between gap-1.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
                       <User size={13} className="text-emerald-700 shrink-0" />
-                      <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider shrink-0">
                         PETUGAS:
                       </span>
-                      <span className="font-extrabold text-slate-900 uppercase text-[11px]">
+                      <span className="font-black text-slate-900 uppercase text-[11px] truncate">
                         {h.inspectorName}
                       </span>
                     </div>
                     {h.isOfflineQueue ? (
-                      <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 uppercase">
+                      <span className="text-[9px] sm:text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 uppercase shrink-0">
                         OFFLINE (LOKAL)
                       </span>
                     ) : (
-                      <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 uppercase">
+                      <span className="text-[9px] sm:text-[10px] font-black px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 uppercase shrink-0">
                         TERVERIFIKASI
                       </span>
                     )}
@@ -457,10 +459,10 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
                   {/* Tanggal & Waktu Pemeriksaan */}
                   <div className="flex items-center gap-1.5 text-emerald-950 border-t border-emerald-100/80 pt-1.5">
                     <Calendar size={13} className="text-emerald-700 shrink-0" />
-                    <span className="text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider">
+                    <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wider shrink-0">
                       WAKTU:
                     </span>
-                    <span className="text-[11px] font-extrabold">
+                    <span className="text-[11px] font-black truncate">
                       {formatCheckDateTime(h.inspectedAt)}
                     </span>
                   </div>
@@ -468,7 +470,7 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
 
                 {/* Catatan jika ada */}
                 {h.notes && (
-                  <p className="text-[11px] text-slate-600 italic bg-slate-50 p-2 rounded-lg border border-slate-100">
+                  <p className="text-[11px] text-slate-600 italic bg-slate-50 p-2 rounded-lg border border-slate-100 leading-relaxed">
                     Catatan: {h.notes}
                   </p>
                 )}
@@ -478,10 +480,10 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
             {checkedHydrants.length === 0 && (
               <div className="p-6 text-center text-xs text-slate-500 border border-dashed border-slate-200 rounded-xl bg-white space-y-1.5">
                 <Clock size={24} className="text-slate-400 mx-auto" />
-                <p className="font-extrabold text-slate-700 uppercase">
+                <p className="font-black text-slate-700 uppercase">
                   BELUM ADA TITIK HYDRANT YANG DI CEK HARI INI
                 </p>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-[11px] text-slate-500 leading-relaxed">
                   Silakan tekan tombol <strong>"MULAI PERIKSA HYDRANT"</strong> di atas untuk mulai melakukan inspeksi.
                 </p>
               </div>
@@ -489,34 +491,36 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
           </div>
         )}
 
-        {/* LIST KONTEN TAB 2: TITIK YANG BELUM DI CEK (TANPA LINK PERIKSA SEKARANG) */}
+        {/* LIST KONTEN TAB 2: TITIK YANG BELUM DI CEK */}
         {activeTab === 'unchecked' && (
-          <div className="space-y-2 max-h-[390px] overflow-y-auto pr-1">
+          <div className="space-y-2 max-h-[420px] overflow-y-auto pr-0.5">
             {uncheckedHydrants.map((h) => (
               <div
                 key={h.id}
-                className="p-3.5 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 transition space-y-2 shadow-2xs"
+                className="p-3 sm:p-3.5 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 transition space-y-2 shadow-2xs"
               >
                 {/* Baris 1: Nomor Hydrant, Gudang & Lokasi Tag */}
                 <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-black text-slate-900 uppercase tracking-wide">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-sm sm:text-base font-black text-slate-900 uppercase tracking-wide shrink-0">
                       {h.number}
                     </span>
-                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 uppercase">
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 uppercase tracking-wider truncate">
                       GUDANG {h.warehouse_name.replace(/^gudang\s+/i, '').trim()}
                     </span>
                   </div>
-                  <LocationTag type={h.location_type} />
+                  <div className="shrink-0">
+                    <LocationTag type={h.location_type} />
+                  </div>
                 </div>
 
                 {/* Baris 2: Nama Lokasi */}
-                <p className="text-xs text-slate-600 flex items-center gap-1.5">
+                <p className="text-xs text-slate-600 font-medium flex items-center gap-1.5 leading-snug">
                   <MapPin size={13} className="text-slate-400 shrink-0" />
-                  <span className="truncate font-medium">{h.location_name}</span>
+                  <span className="truncate">{h.location_name}</span>
                 </p>
 
-                {/* Baris 3: Status Saja (Tautan Periksa Sekarang telah dihilangkan) */}
+                {/* Baris 3: Status Ringkas */}
                 <div className="pt-0.5 flex items-center gap-1.5 text-[11px] text-amber-700 font-bold">
                   <Clock size={12} className="text-amber-500 shrink-0" />
                   <span>Belum Diperiksa Hari Ini</span>
@@ -527,10 +531,10 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
             {uncheckedHydrants.length === 0 && (
               <div className="p-6 text-center text-xs text-emerald-700 border border-dashed border-emerald-200 rounded-xl bg-emerald-50/50 space-y-1">
                 <CheckCircle2 size={24} className="text-emerald-600 mx-auto" />
-                <p className="font-extrabold text-emerald-900 uppercase">
+                <p className="font-black text-emerald-900 uppercase">
                   SEMUA TITIK TELAH SELESAI DI CEK HARI INI!
                 </p>
-                <p className="text-[11px] text-emerald-800">
+                <p className="text-[11px] text-emerald-800 leading-relaxed">
                   Luar biasa! Seluruh titik hydrant telah selesai diperiksa hari ini.
                 </p>
               </div>

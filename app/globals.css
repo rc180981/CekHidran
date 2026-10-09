@@ -6,11 +6,15 @@
   html {
     -webkit-tap-highlight-color: transparent;
     -webkit-text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
     touch-action: manipulation;
   }
   body {
     @apply bg-canvas text-slate-900 antialiased;
     touch-action: manipulation;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   }
   h1, h2, h3 { @apply font-bold tracking-tight text-slate-900; }
 }

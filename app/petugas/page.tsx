@@ -120,8 +120,8 @@ export default function PetugasPage() {
   }
 
   return (
-    <div className="min-h-screen bg-canvas p-4 sm:p-6 pb-20">
-      <div className="max-w-md mx-auto">
+    <div className="min-h-screen bg-canvas px-3.5 py-4 sm:px-6 sm:py-6 pb-24">
+      <div className="max-w-md mx-auto w-full">
         <PetugasClientDashboard initialBundle={bundle} />
       </div>
     </div>
