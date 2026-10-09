@@ -74,6 +74,15 @@ async function doSync(): Promise<SyncResult> {
       const badItems = (it.results || []).filter((r: any) => r.result === 'tidak_baik');
       for (const bad of badItems) {
         const findingId = `${it.id}_${bad.checklistItemId}`;
+        let itemPhotoUrl: string | null = null;
+        if (bad.photo?.blob) {
+          try {
+            itemPhotoUrl = await blobToDataUrl(bad.photo.blob);
+          } catch {}
+        }
+
+        const findingPhotos = itemPhotoUrl ? [itemPhotoUrl] : photoUrls;
+
         await setDoc(
           doc(db, 'findings', findingId),
           {
@@ -81,12 +90,16 @@ async function doSync(): Promise<SyncResult> {
             inspection_id: it.id,
             hydrant_id: it.hydrantId,
             check_item_id: bad.checklistItemId,
-            description: it.notes ? `Kondisi tidak baik: ${it.notes}` : 'Kondisi tidak baik saat pemeriksaan',
+            description: bad.notes
+              ? bad.notes
+              : it.notes
+              ? `Kondisi tidak baik: ${it.notes}`
+              : 'Kondisi tidak baik saat pemeriksaan',
             status: 'terbuka',
             reported_by: it.userId || auth.currentUser?.uid || 'petugas',
             created_at: it.inspectedAt || new Date().toISOString(),
-            photo_url: photoUrls.length > 0 ? photoUrls[0] : null,
-            photos: photoUrls,
+            photo_url: itemPhotoUrl || (photoUrls.length > 0 ? photoUrls[0] : null),
+            photos: findingPhotos,
           },
           { merge: true },
         );

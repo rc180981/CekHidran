@@ -9,6 +9,7 @@ import CameraCapture from './CameraCapture';
 import SignaturePad from './SignaturePad';
 import { extractQrCode, sha256Hex, safeUUID } from '@/lib/qr';
 import { formatDateTime, formatStamp } from '@/lib/period';
+import { stampImageFile } from '@/lib/image';
 import { getBundle, enqueue, refreshBundle } from '@/lib/offline/db';
 import { syncQueue } from '@/lib/offline/sync';
 import type { CachedHydrant, ChecklistItem, PetugasBundle, CheckResultValue } from '@/lib/types';
@@ -50,6 +51,9 @@ export default function InspectionWizard({
 
   // Step 3: Checklist & TTD
   const [results, setResults] = useState<Record<string, CheckResultValue>>({});
+  const [itemNotes, setItemNotes] = useState<Record<string, string>>({});
+  const [itemPhotos, setItemPhotos] = useState<Record<string, { blob: Blob; previewUrl: string; takenAt: Date }>>({});
+  const [itemPhotoLoading, setItemPhotoLoading] = useState<Record<string, boolean>>({});
   const [notes, setNotes] = useState<string>('');
   const [signatureData, setSignatureData] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -163,12 +167,43 @@ export default function InspectionWizard({
     });
   }
 
-  function getStampLines(takenAt: Date): string[] {
+  function getStampLines(takenAt: Date, customLabel?: string): string[] {
     return [
       `No: ${matchedHydrant?.number ?? '-'} (${matchedHydrant?.warehouse_name ?? '-'})`,
-      `Waktu: ${formatStamp(takenAt)}`,
+      customLabel ? `Temuan: ${customLabel}` : `Waktu: ${formatStamp(takenAt)}`,
       `Petugas: ${bundle.user.name}`,
     ];
+  }
+
+  async function handleItemPhotoCapture(itemId: string, itemName: string, file: File) {
+    setItemPhotoLoading((prev) => ({ ...prev, [itemId]: true }));
+    try {
+      const at = new Date();
+      const stampedBlob = await stampImageFile(file, getStampLines(at, itemName));
+      const previewUrl = URL.createObjectURL(stampedBlob);
+      if (itemPhotos[itemId]) {
+        URL.revokeObjectURL(itemPhotos[itemId].previewUrl);
+      }
+      setItemPhotos((prev) => ({
+        ...prev,
+        [itemId]: { blob: stampedBlob, previewUrl, takenAt: at },
+      }));
+    } catch (e) {
+      console.error('Gagal mengambil foto temuan item:', e);
+    } finally {
+      setItemPhotoLoading((prev) => ({ ...prev, [itemId]: false }));
+    }
+  }
+
+  function removeItemPhoto(itemId: string) {
+    if (itemPhotos[itemId]) {
+      URL.revokeObjectURL(itemPhotos[itemId].previewUrl);
+      setItemPhotos((prev) => {
+        const next = { ...prev };
+        delete next[itemId];
+        return next;
+      });
+    }
   }
 
   async function handleSaveInspection() {
@@ -177,11 +212,11 @@ export default function InspectionWizard({
       return;
     }
     if (photos.length < 1) {
-      setSubmitError('Wajib melampirkan minimal 1 foto kondisi.');
+      setSubmitError('Wajib melampirkan minimal 1 foto kondisi fisik hydrant.');
       return;
     }
     if (!signatureData) {
-      setSubmitError('Tanda tangan digital wajib diisi.');
+      setSubmitError('Tanda tangan digital petugas wajib diisi.');
       return;
     }
 
@@ -196,6 +231,19 @@ export default function InspectionWizard({
       const resSig = await fetch(signatureData);
       const signatureBlob = await resSig.blob();
 
+      // Gabungkan foto umum kondisi dan foto temuan spesifik
+      const allPhotos = [...photos.map((p) => ({
+        blob: p.blob,
+        takenAt: p.takenAt.toISOString(),
+      }))];
+
+      Object.values(itemPhotos).forEach((ip) => {
+        allPhotos.push({
+          blob: ip.blob,
+          takenAt: ip.takenAt.toISOString(),
+        });
+      });
+
       const queuedItem = {
         id: inspectionId,
         userId: bundle.user.id,
@@ -207,11 +255,15 @@ export default function InspectionWizard({
         results: Object.entries(results).map(([checklistItemId, result]) => ({
           checklistItemId,
           result,
+          notes: itemNotes[checklistItemId] || '',
+          photo: itemPhotos[checklistItemId]
+            ? {
+                blob: itemPhotos[checklistItemId].blob,
+                takenAt: itemPhotos[checklistItemId].takenAt.toISOString(),
+              }
+            : undefined,
         })),
-        photos: photos.map((p) => ({
-          blob: p.blob,
-          takenAt: p.takenAt.toISOString(),
-        })),
+        photos: allPhotos,
         signature: signatureBlob,
         createdAt: new Date().toISOString(),
         attempts: 0,
@@ -584,16 +636,41 @@ export default function InspectionWizard({
 
       {/* LANGKAH 3: CHECKLIST & TTD */}
       {step === 3 && (
-        <div className="space-y-4">
-          <div className="card p-4 sm:p-5 space-y-4 sm:space-y-5">
-            <div>
-              <h2 className="text-sm sm:text-base font-extrabold text-slate-900 uppercase tracking-wider">
-                LANGKAH 3: LEMBAR CHECKLIST &amp; TTD
-              </h2>
-              <p className="text-xs text-slate-500 mt-1">
-                Pilih kondisi setiap komponen. Item "Tidak Baik" otomatis dicatat sebagai temuan K3.
-              </p>
+        <div className="space-y-3 sm:space-y-4">
+          <div className="card p-3.5 sm:p-5 space-y-3 sm:space-y-4">
+            {/* Header Langkah 3 */}
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <h2 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-wider">
+                    LANGKAH 3: LEMBAR CHECKLIST &amp; TTD
+                  </h2>
+                  {matchedHydrant && (
+                    <span className="px-2 py-0.5 rounded-lg bg-primary/10 text-primary text-[10px] font-black border border-primary/20">
+                      {matchedHydrant.number}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-500 mt-0.5">
+                  Pilih kondisi fisik tiap komponen. Item "Tidak Baik" wajib diisi keterangan temuan.
+                </p>
+              </div>
             </div>
+
+            {/* Banner Ringkasan Temuan jika ada yang tidak baik */}
+            {Object.values(results).some((r) => r === 'tidak_baik') && (
+              <div className="p-2.5 rounded-xl border border-red-200 bg-red-50/70 flex items-center justify-between text-xs font-bold text-red-900 animate-in fade-in duration-150">
+                <span className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-red-600 animate-pulse" />
+                  <span>
+                    {Object.values(results).filter((r) => r === 'tidak_baik').length} Komponen Dicatat Sebagai Temuan K3
+                  </span>
+                </span>
+                <span className="text-[10px] text-red-700 font-semibold">
+                  (Otomatis Dilaporkan)
+                </span>
+              </div>
+            )}
 
             {/* Daftar Item Checklist */}
             <div className="space-y-2.5">
@@ -601,38 +678,56 @@ export default function InspectionWizard({
                 const val = results[item.id] || 'baik';
                 const isBaik = val === 'baik';
                 const numStr = (idx + 1).toString().padStart(2, '0');
+                const photoObj = itemPhotos[item.id];
+                const noteVal = itemNotes[item.id] || '';
+                const isPhotoBusy = itemPhotoLoading[item.id];
 
                 return (
                   <div
                     key={item.id}
-                    className={`p-3 sm:p-3.5 rounded-xl border transition-all ${
+                    className={`p-3 sm:p-3.5 rounded-2xl border transition-all shadow-xs ${
                       isBaik
-                        ? 'border-slate-200 bg-slate-50/60'
-                        : 'border-red-300 bg-red-50/40'
+                        ? 'border-slate-200/90 bg-white'
+                        : 'border-red-300 bg-red-50/30 ring-1 ring-red-200/80'
                     }`}
                   >
-                    <div className="mb-2">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] font-black text-primary">{numStr}.</span>
-                        <strong className="text-xs sm:text-sm text-slate-900 font-bold leading-snug">
-                          {item.name}
-                        </strong>
+                    {/* Header item: nomor, nama, deskripsi */}
+                    <div className="mb-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="flex items-center justify-center h-5 w-5 rounded-md bg-slate-100 text-slate-700 text-[11px] font-black">
+                            {numStr}
+                          </span>
+                          <strong className="text-xs sm:text-sm text-slate-900 font-bold leading-snug">
+                            {item.name}
+                          </strong>
+                        </div>
+                        <span
+                          className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full ${
+                            isBaik
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+                              : 'bg-red-100 text-red-800 border border-red-300'
+                          }`}
+                        >
+                          {isBaik ? 'NORMAL' : 'TEMUAN K3'}
+                        </span>
                       </div>
                       {item.description && (
-                        <p className="text-[11px] text-slate-500 mt-0.5 pl-5">
+                        <p className="text-[11px] text-slate-500 mt-1 pl-7 leading-relaxed">
                           {item.description}
                         </p>
                       )}
                     </div>
 
+                    {/* Tombol Pilihan 50%:50% */}
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
                         onClick={() => setResults((prev) => ({ ...prev, [item.id]: 'baik' }))}
-                        className={`h-10 rounded-lg text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] ${
+                        className={`h-10 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] ${
                           isBaik
-                            ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-600/30'
-                            : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                            ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-600/30'
+                            : 'bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100'
                         }`}
                       >
                         ✓ BAIK
@@ -640,54 +735,107 @@ export default function InspectionWizard({
                       <button
                         type="button"
                         onClick={() => setResults((prev) => ({ ...prev, [item.id]: 'tidak_baik' }))}
-                        className={`h-10 rounded-lg text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] ${
+                        className={`h-10 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] ${
                           !isBaik
-                            ? 'bg-red-600 text-white shadow-sm ring-2 ring-red-600/30'
-                            : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                            ? 'bg-red-600 text-white shadow-xs ring-2 ring-red-600/30'
+                            : 'bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100'
                         }`}
                       >
                         ✕ TIDAK BAIK
                       </button>
                     </div>
+
+                    {/* PANEL DETAIL TEMUAN (MUNCUL BILA STATUS TIDAK BAIK) */}
+                    {!isBaik && (
+                      <div className="mt-3 p-3 rounded-xl border border-red-200 bg-red-50/80 space-y-2.5 animate-in fade-in duration-200">
+                        <div className="flex items-center gap-1.5 text-red-900 font-extrabold text-[11px] uppercase tracking-wider">
+                          <AlertTriangle size={13} className="text-red-600" />
+                          <span>Detail Temuan Kerusakan Komponen</span>
+                        </div>
+
+                        {/* Kolom Keterangan Kerusakan */}
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-red-950 mb-1">
+                            Keterangan Kerusakan / Masalah:
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={noteVal}
+                            onChange={(e) =>
+                              setItemNotes((prev) => ({ ...prev, [item.id]: e.target.value }))
+                            }
+                            placeholder={`Jelaskan kondisi tidak baik pada ${item.name} (cth: bocor, patah, aus, tuas macet)...`}
+                            className="input h-auto py-2 text-xs bg-white border-red-300 focus:border-red-500 focus:ring-red-500/20 rounded-xl"
+                          />
+                        </div>
+
+                        {/* Kolom Foto Bukti Kerusakan Item Ini */}
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-red-950 mb-1">
+                            Foto Bukti Kerusakan (Kamera HP):
+                          </label>
+
+                          {photoObj ? (
+                            <div className="flex items-center gap-3 bg-white p-2 rounded-xl border border-red-200 shadow-xs">
+                              <div className="relative h-16 w-16 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 flex-shrink-0">
+                                <img
+                                  src={photoObj.previewUrl}
+                                  alt={`Foto temuan ${item.name}`}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/80 inline-block mb-1">
+                                  ✓ Foto Bukti Terlampir
+                                </span>
+                                <p className="text-[10px] text-slate-500 truncate">
+                                  {formatStamp(photoObj.takenAt)}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => removeItemPhoto(item.id)}
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                title="Hapus foto ini"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          ) : (
+                            <label className="relative w-full h-10 rounded-xl bg-red-700 hover:bg-red-800 active:scale-[0.98] text-white font-bold text-xs tracking-wide shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer select-none">
+                              <Camera size={15} />
+                              <span>{isPhotoBusy ? 'Memproses Cap Foto…' : 'Buka Kamera & Ambil Foto Bukti'}</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                className="sr-only"
+                                disabled={isPhotoBusy}
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  e.target.value = '';
+                                  if (file) handleItemPhotoCapture(item.id, item.name, file);
+                                }}
+                              />
+                            </label>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
 
-            {/* OPSI FOTO BUKTI TEMUAN KERUSAKAN JIKA TERDAPAT STATUS TIDAK BAIK */}
-            {Object.values(results).some((r) => r === 'tidak_baik') && (
-              <div className="p-4 rounded-xl border border-red-200 bg-red-50/60 space-y-3">
-                <div className="flex items-center gap-2 text-red-950 font-bold text-xs uppercase tracking-wider">
-                  <span className="h-2.5 w-2.5 rounded-full bg-red-600 animate-pulse" />
-                  <span>Foto Bukti Kerusakan / Temuan K3</span>
-                </div>
-                <p className="text-xs text-red-800 leading-relaxed">
-                  Karena terdapat item dengan status <strong>"TIDAK BAIK"</strong>, Anda dapat melampirkan foto bukti fokus kerusakan untuk dokumentasi tim K3.
-                </p>
-
-                {photos.length < 4 ? (
-                  <CameraCapture
-                    onCapture={handlePhotoCapture}
-                    getStampLines={getStampLines}
-                    disabled={photos.length >= 4}
-                  />
-                ) : (
-                  <p className="text-xs text-emerald-800 font-semibold bg-emerald-50 p-2.5 rounded-lg border border-emerald-200">
-                    ✓ Batas maksimal foto ({photos.length} foto) telah terpenuhi.
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Catatan Pemeriksaan */}
-            <div>
+            {/* Catatan Umum Pemeriksaan */}
+            <div className="pt-1">
               <label htmlFor="notes" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                Catatan Pemeriksaan (Opsional)
+                Catatan Umum Pemeriksaan (Opsional)
               </label>
               <textarea
                 id="notes"
-                rows={3}
-                className="input h-auto py-2.5 text-xs sm:text-sm rounded-xl"
+                rows={2}
+                className="input h-auto py-2 text-xs sm:text-sm rounded-xl"
                 placeholder="Tuliskan catatan kondisi khusus atau kendala lapangan jika ada..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
@@ -695,7 +843,7 @@ export default function InspectionWizard({
             </div>
 
             {/* Tanda Tangan Digital */}
-            <div>
+            <div className="pt-1">
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
                 Tanda Tangan Digital Petugas
               </label>
@@ -709,7 +857,8 @@ export default function InspectionWizard({
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-2.5">
+          {/* Tombol Navigasi Bawah */}
+          <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               disabled={submitting}

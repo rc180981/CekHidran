@@ -42,7 +42,12 @@ export interface QueuedInspection {
   qrCode: string;
   inspectedAt: string;
   notes: string;
-  results: { checklistItemId: string; result: CheckResultValue }[];
+  results: {
+    checklistItemId: string;
+    result: CheckResultValue;
+    notes?: string;
+    photo?: { blob: Blob; takenAt: string };
+  }[];
   photos: { blob: Blob; takenAt: string }[];
   signature: Blob;
   createdAt: string;
