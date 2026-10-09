@@ -205,9 +205,9 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
   const uncheckedCount = uncheckedHydrants.length;
 
   return (
-    <div className="space-y-3 sm:space-y-3.5">
+    <div className="space-y-3 sm:space-y-4">
       {/* 1. HEADER ATAS DENGAN ANTREAN OFFLINE TERINTEGRASI */}
-      <div className="border-b border-slate-200/70 pb-2.5 space-y-2">
+      <header className="border-b border-slate-200/80 pb-3 space-y-2">
         <div className="flex items-center justify-between gap-2">
           {/* Logo & Judul */}
           <div className="flex items-center gap-2.5 min-w-0">
@@ -264,7 +264,7 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
             {syncMsg}
           </p>
         )}
-      </div>
+      </header>
 
       {/* ALERT SUKSES PEMERIKSAAN */}
       {showSuccess && (
@@ -300,7 +300,7 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
       <div>
         <Link
           href="/petugas/periksa"
-          className="group relative flex items-center justify-between overflow-hidden rounded-2xl bg-gradient-to-r from-primary to-teal-800 p-3 sm:p-3.5 text-white shadow-md shadow-primary/25 transition-all duration-200 hover:shadow-lg hover:shadow-primary/30 active:scale-[0.99]"
+          className="group relative flex items-center justify-between overflow-hidden rounded-2xl bg-gradient-to-r from-primary to-teal-800 p-3 sm:p-4 text-white shadow-md shadow-primary/25 transition-all duration-200 hover:shadow-lg hover:shadow-primary/30 active:scale-[0.99] min-h-[58px]"
         >
           <div className="flex items-center gap-3 min-w-0">
             <div className="flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white backdrop-blur-xs ring-1 ring-white/20 transition-transform group-hover:scale-105">
@@ -325,7 +325,7 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
       </div>
 
       {/* 4. CARD STATISTIK: SUDAH DI CEK & BELUM DI CEK (RESPONSIF & PRESISI) */}
-      <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3">
         {/* Card Sudah Di Cek */}
         <div
           onClick={() => setActiveTab('checked')}
@@ -374,38 +374,38 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
       </div>
 
       {/* 5. DAFTAR TITIK HYDRANT */}
-      <div className="space-y-2 pt-0.5">
+      <div className="space-y-2.5 pt-1">
         {/* Tab Toggle: Segmented Control 50% - 50% Otomatis Presisi di Mobile */}
         <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-200/70 rounded-xl border border-slate-300/60">
           <button
             type="button"
             onClick={() => setActiveTab('checked')}
-            className={`py-2 px-1 text-center text-xs font-black uppercase rounded-lg transition-all flex items-center justify-center gap-1.5 select-none ${
+            className={`min-h-[38px] py-2 px-1 text-center text-xs font-black uppercase rounded-lg transition-all flex items-center justify-center gap-1.5 select-none active:scale-95 ${
               activeTab === 'checked'
                 ? 'bg-emerald-600 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 bg-transparent'
             }`}
           >
-            <CheckCircle2 size={13} className="shrink-0" />
+            <CheckCircle2 size={14} className="shrink-0" />
             <span className="truncate">SUDAH DI CEK ({checkedCount})</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('unchecked')}
-            className={`py-2 px-1 text-center text-xs font-black uppercase rounded-lg transition-all flex items-center justify-center gap-1.5 select-none ${
+            className={`min-h-[38px] py-2 px-1 text-center text-xs font-black uppercase rounded-lg transition-all flex items-center justify-center gap-1.5 select-none active:scale-95 ${
               activeTab === 'unchecked'
                 ? 'bg-amber-600 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 bg-transparent'
             }`}
           >
-            <Clock size={13} className="shrink-0" />
+            <Clock size={14} className="shrink-0" />
             <span className="truncate">BELUM DI CEK ({uncheckedCount})</span>
           </button>
         </div>
 
         {/* LIST KONTEN TAB 1: TITIK YANG SUDAH DI CEK HARI INI */}
         {activeTab === 'checked' && (
-          <div className="space-y-2 max-h-[420px] overflow-y-auto pr-0.5">
+          <div className="space-y-2.5">
             {checkedHydrants.map((h) => (
               <div
                 key={h.id}
@@ -493,7 +493,7 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
 
         {/* LIST KONTEN TAB 2: TITIK YANG BELUM DI CEK */}
         {activeTab === 'unchecked' && (
-          <div className="space-y-2 max-h-[420px] overflow-y-auto pr-0.5">
+          <div className="space-y-2.5">
             {uncheckedHydrants.map((h) => (
               <div
                 key={h.id}
