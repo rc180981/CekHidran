@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Logo } from '@/components/Logo';
 import LoginForm from './LoginForm';
+import PwaInstallGuide from '@/components/PwaInstallGuide';
 
 export const metadata: Metadata = {
   title: 'Masuk - Cek Hidran',
@@ -37,6 +38,9 @@ export default async function LoginPage({
         <div className="card border-slate-200/80 bg-white/95 p-5 sm:p-7 shadow-lg shadow-slate-200/50 backdrop-blur-sm">
           <LoginForm next={next} />
         </div>
+
+        {/* Panduan & Tombol Pasang di HP (PWA) */}
+        <PwaInstallGuide />
 
         {/* Footer info */}
         <div className="mt-6 text-center">
