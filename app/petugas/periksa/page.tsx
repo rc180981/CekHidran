@@ -169,35 +169,35 @@ function PeriksaContent() {
   if (!bundle) return null;
 
   return (
-    <div className="min-h-[100dvh] bg-canvas pb-24">
+    <div className="min-h-[100dvh] bg-canvas pb-8 sm:pb-16 flex flex-col">
       {/* Top Navigation Bar */}
-      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/95 backdrop-blur-md px-3.5 py-3 sm:px-6">
+      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/95 backdrop-blur-md px-3 py-2 sm:px-6 sm:py-2.5">
         <div className="max-w-xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <Link
               href="/petugas"
               aria-label="Kembali ke Dashboard Petugas"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-xs hover:bg-slate-50 active:scale-95 transition-all"
+              className="inline-flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-xs hover:bg-slate-50 active:scale-95 transition-all"
             >
-              <ArrowLeft size={18} />
+              <ArrowLeft size={16} />
             </Link>
             <div>
-              <h1 className="text-sm sm:text-base font-black text-slate-900 tracking-wider uppercase leading-tight">
+              <h1 className="text-xs sm:text-sm font-black text-slate-900 tracking-wider uppercase leading-tight">
                 PEMERIKSAAN HYDRANT
               </h1>
-              <p className="text-[10px] font-bold text-primary tracking-wider uppercase">
+              <p className="text-[9px] sm:text-[10px] font-bold text-primary tracking-wider uppercase">
                 FORM INSPEKSI RUTIN K3
               </p>
             </div>
           </div>
-          <span className="text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-teal-50 text-teal-800 border border-teal-200/70">
+          <span className="text-[9px] sm:text-[10px] font-extrabold uppercase px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-teal-50 text-teal-800 border border-teal-200/70">
             HARIAN
           </span>
         </div>
       </header>
 
       {/* Main Container */}
-      <main className="max-w-xl mx-auto px-3.5 py-4 sm:px-6 sm:py-6">
+      <main className="max-w-xl w-full mx-auto px-3 py-2.5 sm:px-6 sm:py-4 flex-1">
         <InspectionWizard initialBundle={bundle} initialQr={qr} />
       </main>
     </div>

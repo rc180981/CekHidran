@@ -239,80 +239,77 @@ export default function InspectionWizard({
   }
 
   return (
-    <div className="space-y-4 sm:space-y-5">
+    <div className="space-y-2.5 sm:space-y-4">
       {/* Network banner */}
-      <div className="flex items-center justify-between text-xs text-slate-600 bg-white border border-slate-200/80 px-3.5 py-2.5 rounded-xl shadow-xs">
-        <div className="flex items-center gap-2 font-semibold">
+      <div className="flex items-center justify-between text-xs text-slate-600 bg-white border border-slate-200/80 px-3 py-1.5 rounded-xl shadow-xs">
+        <div className="flex items-center gap-1.5 font-semibold">
           {online ? (
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/70 text-[11px]">
-              <Wifi size={12} className="text-emerald-600" />
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/70 text-[10px]">
+              <Wifi size={11} className="text-emerald-600" />
               <span>ONLINE</span>
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200/70 text-[11px]">
-              <WifiOff size={12} className="text-amber-600" />
-              <span>OFFLINE (TERSIMPAN LOKAL)</span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200/70 text-[10px]">
+              <WifiOff size={11} className="text-amber-600" />
+              <span>OFFLINE</span>
             </span>
           )}
         </div>
-        <div className="text-[11px] font-bold text-slate-700 truncate max-w-[160px] sm:max-w-none">
+        <div className="text-[11px] font-bold text-slate-700 truncate max-w-[170px] sm:max-w-none">
           PETUGAS: <span className="text-primary">{bundle.user.name}</span>
         </div>
       </div>
 
       {/* Step Indicator */}
-      <div className="card p-3 sm:p-4">
+      <div className="card p-2 sm:p-3">
         <StepIndicator steps={STEPS} current={step} />
       </div>
 
       {/* LANGKAH 1: INFO HYDRANT */}
       {step === 1 && (
-        <div className="space-y-4">
-          <div className="card p-4 sm:p-5 space-y-4">
-            <div>
-              <h2 className="text-sm sm:text-base font-extrabold text-slate-900 uppercase tracking-wider">
-                LANGKAH 1: PINDAI QR CODE HYDRANT
-              </h2>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Pindai stiker QR Code fisik yang terpasang pada box hydrant untuk memulai inspeksi.
-              </p>
-            </div>
+        <div className="space-y-2.5 sm:space-y-3">
+          {scanMode ? (
+            <div className="card p-3.5 sm:p-5 space-y-3">
+              <div>
+                <h2 className="text-xs sm:text-sm font-extrabold text-slate-900 uppercase tracking-wider">
+                  LANGKAH 1: PINDAI QR CODE HYDRANT
+                </h2>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Pindai stiker QR fisik atau pilih titik penugasan jika darurat
+                </p>
+              </div>
 
-            {scanMode ? (
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 <QrScanner onResult={handleQrFound} />
-                <p className="text-center text-[11px] font-medium text-slate-500">
+                <p className="text-center text-[10px] font-medium text-slate-500">
                   Arahkan kamera ke QR Code di pintu box hydrant
                 </p>
 
                 {/* PANEL PILIH TITIK HYDRANT DARURAT */}
-                <div className="pt-2 border-t border-slate-100">
+                <div className="pt-1.5 border-t border-slate-100">
                   <button
                     type="button"
                     onClick={() => {
                       setShowManualInput(!showManualInput);
                       setManualError(null);
                     }}
-                    className="w-full py-2.5 px-3 rounded-xl border border-dashed border-amber-300 bg-amber-50/70 hover:bg-amber-100/70 text-amber-900 text-xs font-bold transition-all flex items-center justify-between active:scale-[0.99]"
+                    className="w-full py-2 px-3 rounded-xl border border-dashed border-amber-300 bg-amber-50/70 hover:bg-amber-100/70 text-amber-900 text-xs font-bold transition-all flex items-center justify-between active:scale-[0.99]"
                   >
-                    <span className="flex items-center gap-2">
-                      <AlertTriangle size={15} className="text-amber-600 flex-shrink-0" />
-                      <span>QR Rusak / Tidak Ada di Lokasi? (Pilihan Darurat)</span>
+                    <span className="flex items-center gap-1.5">
+                      <AlertTriangle size={14} className="text-amber-600 flex-shrink-0" />
+                      <span className="text-[11px]">QR Rusak / Tidak Ada di Lokasi?</span>
                     </span>
                     <span className="text-[11px] text-amber-700 underline font-extrabold">
-                      {showManualInput ? 'Tutup Pilihan' : 'Pilih Titik Manual'}
+                      {showManualInput ? 'Tutup' : 'Pilih Titik Manual'}
                     </span>
                   </button>
 
                   {showManualInput && (
-                    <div className="mt-2.5 p-3.5 rounded-xl border border-amber-200 bg-amber-50/60 space-y-2.5 animate-in fade-in duration-150">
+                    <div className="mt-2 p-3 rounded-xl border border-amber-200 bg-amber-50/60 space-y-2 animate-in fade-in duration-150">
                       <div>
-                        <label htmlFor="emergency-select" className="block text-xs font-bold uppercase tracking-wider text-amber-950 mb-1">
-                          Pilih Titik Box Hydrant &amp; Gudang
+                        <label htmlFor="emergency-select" className="block text-[11px] font-bold uppercase tracking-wider text-amber-950 mb-1">
+                          Pilih Titik Box Hydrant &amp; Gudang:
                         </label>
-                        <p className="text-[11px] text-slate-600 mb-2.5 leading-relaxed">
-                          Pilih box hydrant di bawah ini untuk melanjutkan pemeriksaan tanpa memindai QR fisik:
-                        </p>
                         <select
                           id="emergency-select"
                           defaultValue=""
@@ -323,7 +320,7 @@ export default function InspectionWizard({
                               handleManualSelect(found);
                             }
                           }}
-                          className="input h-12 w-full text-xs sm:text-sm font-bold border-amber-300 bg-white text-slate-900 focus:border-amber-500 focus:ring-amber-500/20 cursor-pointer rounded-xl shadow-xs"
+                          className="input h-11 w-full text-xs font-bold border-amber-300 bg-white text-slate-900 focus:border-amber-500 focus:ring-amber-500/20 cursor-pointer rounded-xl shadow-xs"
                         >
                           <option value="" disabled>
                             -- Pilih Titik Box Hydrant &amp; Gudang --
@@ -340,7 +337,7 @@ export default function InspectionWizard({
                       </div>
 
                       {manualError && (
-                        <div className="p-2.5 bg-red-50 text-red-800 border border-red-200 rounded-lg text-xs font-medium">
+                        <div className="p-2 bg-red-50 text-red-800 border border-red-200 rounded-lg text-xs font-medium">
                           {manualError}
                         </div>
                       )}
@@ -348,21 +345,27 @@ export default function InspectionWizard({
                   )}
                 </div>
               </div>
-            ) : (
+
+              {scanError && (
+                <div className="p-2.5 bg-red-50 text-red-800 border border-red-200 rounded-xl text-xs font-medium leading-relaxed">
+                  {scanError}
+                </div>
+              )}
+            </div>
+          ) : (
+            /* TAMPILAN SETELAH LANGKAH 1 DIJALANKAN (KOMPAK & NO SCROLL) */
+            <div className="space-y-3">
               <div
-                className={`rounded-xl border p-4 space-y-3 ${
+                className={`card p-4 sm:p-5 space-y-3 border shadow-sm ${
                   isEmergencyMode
-                    ? 'border-amber-300 bg-amber-50/70'
-                    : 'border-emerald-200 bg-emerald-50/70'
+                    ? 'border-amber-300 bg-gradient-to-b from-amber-50/70 to-white'
+                    : 'border-emerald-300 bg-gradient-to-b from-emerald-50/60 to-white'
                 }`}
               >
-                <div
-                  className={`flex items-center justify-between pb-2 border-b ${
-                    isEmergencyMode ? 'border-amber-300/80' : 'border-emerald-200/70'
-                  }`}
-                >
+                {/* Header Card Hasil */}
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200/80">
                   <span
-                    className={`text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+                    className={`text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 ${
                       isEmergencyMode ? 'text-amber-900' : 'text-emerald-800'
                     }`}
                   >
@@ -391,99 +394,86 @@ export default function InspectionWizard({
                   </button>
                 </div>
 
-                {isEmergencyMode && (
-                  <p className="text-[11px] text-amber-800 bg-amber-100/60 p-2 rounded-lg leading-relaxed">
-                    Catatan: Hydrant diverifikasi tanpa scan fisik (Darurat). Keterangan darurat otomatis dicatat di lembar laporan K3.
-                  </p>
-                )}
-
+                {/* Konten Identitas Hydrant Ramping */}
                 {matchedHydrant && (
-                  <div className="space-y-2 pt-1">
-                    <div className="flex items-start justify-between gap-2">
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
                       <div>
-                        <span className="text-xs text-slate-500 font-semibold uppercase">Nomor Box Hydrant</span>
-                        <p className="font-black text-xl text-slate-900 tracking-wide">{matchedHydrant.number}</p>
+                        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                          Nomor Box Hydrant
+                        </span>
+                        <p className="font-black text-2xl text-slate-900 tracking-wide leading-none mt-0.5">
+                          {matchedHydrant.number}
+                        </p>
                       </div>
                       <span
-                        className={`text-xs font-bold px-2.5 py-1 rounded-lg border shadow-xs ${
+                        className={`text-xs font-black px-3 py-1.5 rounded-xl border shadow-xs ${
                           isEmergencyMode
-                            ? 'bg-white border-amber-300 text-amber-900'
-                            : 'bg-white border-emerald-200 text-emerald-800'
+                            ? 'bg-amber-100/90 border-amber-300 text-amber-950'
+                            : 'bg-emerald-100/90 border-emerald-300 text-emerald-950'
                         }`}
                       >
                         {matchedHydrant.warehouse_name || matchedHydrant.warehouse_id}
                       </span>
                     </div>
 
-                    <div className="text-xs text-slate-700 space-y-1 pt-1">
+                    <div className="rounded-xl bg-slate-50/90 border border-slate-200/80 p-2.5 text-xs text-slate-700 space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <span className="text-slate-500">Jenis Peralatan:</span>
+                        <span className="text-slate-500 font-medium">Jenis Peralatan:</span>
                         <span className="font-bold text-slate-900">{matchedHydrant.type}</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-slate-500">Lokasi Penempatan:</span>
-                        <span className="font-bold text-slate-900 text-right">{matchedHydrant.location_name}</span>
+                        <span className="text-slate-500 font-medium">Lokasi:</span>
+                        <span className="font-bold text-slate-900 text-right truncate max-w-[200px]">
+                          {matchedHydrant.location_name}
+                        </span>
                       </div>
-                      <div className="flex items-center justify-between pt-1">
-                        <span className="text-slate-500">Zona Area:</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500 font-medium">Zona Area:</span>
                         <LocationTag type={matchedHydrant.location_type} />
                       </div>
+                    </div>
+
+                    <div className="text-[10px] text-slate-500 pt-0.5 flex items-center justify-between font-medium">
+                      <span>Metode: <strong className="text-slate-700">{isEmergencyMode ? 'Manual' : 'Scan QR'}</strong></span>
+                      <span>Petugas: <strong className="text-slate-700">{bundle.user.name}</strong></span>
                     </div>
                   </div>
                 )}
               </div>
-            )}
 
-            {scanError && (
-              <div className="p-3 bg-red-50 text-red-800 border border-red-200 rounded-xl text-xs font-medium leading-relaxed">
-                {scanError}
-              </div>
-            )}
-
-            {/* Rekap info waktu scan */}
-            {matchedHydrant && (
-              <div className="text-[11px] text-slate-500 border-t border-slate-100 pt-3 flex items-center justify-between">
-                <span>
-                  Metode: <strong>{isEmergencyMode ? 'MANUAL (DARURAT)' : 'SCAN QR KAMERA'}</strong>
-                </span>
-                <span>Waktu: <strong>{formatDateTime(new Date())}</strong></span>
-              </div>
-            )}
-          </div>
-
-          <button
-            type="button"
-            disabled={!matchedHydrant}
-            onClick={() => setStep(2)}
-            className="relative w-full h-12 rounded-xl bg-gradient-to-r from-primary to-teal-800 hover:from-primary-700 hover:to-teal-900 active:scale-[0.98] text-white font-bold text-sm tracking-wide shadow-md shadow-primary/25 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed select-none"
-          >
-            <span>LANJUT KE FOTO KONDISI</span>
-            <ArrowRight size={18} />
-          </button>
+              {/* Tombol Lanjut ke Foto Kondisi */}
+              <button
+                type="button"
+                disabled={!matchedHydrant}
+                onClick={() => setStep(2)}
+                className="relative w-full h-12 rounded-xl bg-gradient-to-r from-primary to-teal-800 hover:from-primary-700 hover:to-teal-900 active:scale-[0.98] text-white font-bold text-sm tracking-wide shadow-md shadow-primary/25 transition-all flex items-center justify-center gap-2 select-none"
+              >
+                <span>LANJUT KE FOTO KONDISI</span>
+                <ArrowRight size={18} />
+              </button>
+            </div>
+          )}
         </div>
       )}
 
       {/* LANGKAH 2: FOTO KONDISI */}
       {step === 2 && (
-        <div className="space-y-4">
-          <div className="card p-4 sm:p-5 space-y-4">
+        <div className="space-y-2.5 sm:space-y-3">
+          <div className="card p-3.5 sm:p-4 space-y-2.5">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-sm sm:text-base font-extrabold text-slate-900 uppercase tracking-wider">
+                <h2 className="text-xs sm:text-sm font-extrabold text-slate-900 uppercase tracking-wider">
                   LANGKAH 2: FOTO KONDISI HYDRANT
                 </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Foto fisik box hydrant sebelum dilakukan pemeriksaan
+                <p className="text-[10px] text-slate-500">
+                  Ambil foto fisik box hydrant sebelum pemeriksaan (min 1, maks 3)
                 </p>
               </div>
-              <span className="text-[11px] font-black text-primary bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-full uppercase tracking-wider">
+              <span className="text-[10px] font-black text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
                 {photos.length} / 3 FOTO
               </span>
             </div>
-
-            <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-              Wajib minimal <strong>1 foto</strong> (maksimal 3 foto). Setiap foto otomatis dibubuhkan cap identitas waktu, petugas, dan nomor box.
-            </p>
 
             {photos.length < 3 && (
               <CameraCapture
@@ -494,8 +484,8 @@ export default function InspectionWizard({
             )}
 
             {photos.length > 0 && (
-              <div className="space-y-2 pt-1">
-                <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+              <div className="space-y-1.5 pt-1">
+                <p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
                   Foto yang telah diambil ({photos.length}):
                 </p>
                 <div className="grid grid-cols-3 gap-2">
@@ -505,7 +495,7 @@ export default function InspectionWizard({
                       className="relative aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-100 shadow-xs"
                     >
                       <img src={p.previewUrl} alt={`Foto ${idx + 1}`} className="w-full h-full object-cover" />
-                      <span className="absolute bottom-1 left-1 bg-black/60 backdrop-blur-xs text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
+                      <span className="absolute bottom-1 left-1 bg-black/60 backdrop-blur-xs text-white text-[9px] font-bold px-1 py-0.2 rounded">
                         #{idx + 1}
                       </span>
                       <button
@@ -514,7 +504,7 @@ export default function InspectionWizard({
                         className="absolute top-1 right-1 bg-red-600 text-white p-1 rounded-lg shadow-md hover:bg-red-700 active:scale-90 transition-all"
                         title="Hapus foto ini"
                       >
-                        <Trash2 size={13} />
+                        <Trash2 size={12} />
                       </button>
                     </div>
                   ))}
@@ -523,23 +513,23 @@ export default function InspectionWizard({
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => setStep(1)}
-              className="h-12 rounded-xl border border-slate-300 bg-white text-slate-700 font-bold text-sm hover:bg-slate-50 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
+              className="h-11 rounded-xl border border-slate-300 bg-white text-slate-700 font-bold text-xs sm:text-sm hover:bg-slate-50 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
             >
-              <ArrowLeft size={18} />
+              <ArrowLeft size={16} />
               <span>KEMBALI</span>
             </button>
             <button
               type="button"
               disabled={photos.length === 0}
               onClick={() => setStep(3)}
-              className="h-12 rounded-xl bg-gradient-to-r from-primary to-teal-800 hover:from-primary-700 hover:to-teal-900 active:scale-[0.98] text-white font-bold text-sm tracking-wide shadow-md shadow-primary/25 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="h-11 rounded-xl bg-gradient-to-r from-primary to-teal-800 hover:from-primary-700 hover:to-teal-900 active:scale-[0.98] text-white font-bold text-xs sm:text-sm tracking-wide shadow-md shadow-primary/25 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <span>KE CHECKLIST</span>
-              <ArrowRight size={18} />
+              <ArrowRight size={16} />
             </button>
           </div>
         </div>
