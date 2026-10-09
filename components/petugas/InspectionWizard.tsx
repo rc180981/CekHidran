@@ -305,12 +305,12 @@ export default function InspectionWizard({
                   </button>
 
                   {showManualInput && (
-                    <div className="mt-2.5 p-3.5 rounded-xl border border-amber-200 bg-amber-50/60 space-y-2 animate-in fade-in duration-150">
+                    <div className="mt-2.5 p-3.5 rounded-xl border border-amber-200 bg-amber-50/60 space-y-2.5 animate-in fade-in duration-150">
                       <div>
-                        <label htmlFor="emergency-select" className="block text-[11px] font-bold uppercase tracking-wider text-amber-950 mb-1.5">
-                          Daftar Titik Hydrant &amp; Gudang:
+                        <label htmlFor="emergency-select" className="block text-xs font-bold uppercase tracking-wider text-amber-950 mb-1">
+                          Pilih Titik Box Hydrant &amp; Gudang
                         </label>
-                        <p className="text-[11px] text-slate-600 mb-2 leading-relaxed">
+                        <p className="text-[11px] text-slate-600 mb-2.5 leading-relaxed">
                           Pilih box hydrant di bawah ini untuk melanjutkan pemeriksaan tanpa memindai QR fisik:
                         </p>
                         <select
@@ -330,10 +330,9 @@ export default function InspectionWizard({
                           </option>
                           {bundle.hydrants.map((h) => {
                             const whLabel = h.warehouse_name || h.warehouse_id.toUpperCase();
-                            const locDetail = h.location_name ? ` • ${h.location_name}` : '';
                             return (
                               <option key={h.id} value={h.id}>
-                                {h.number} — {whLabel}{locDetail}
+                                {h.number} — {whLabel}
                               </option>
                             );
                           })}
