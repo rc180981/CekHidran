@@ -39,12 +39,9 @@ export default async function LoginPage({
         </div>
 
         {/* Footer info */}
-        <div className="mt-6 text-center space-y-1">
+        <div className="mt-6 text-center">
           <p className="text-[11px] sm:text-xs font-medium text-slate-500">
-            Akun dibuat dan dikelola oleh Administrator K3.
-          </p>
-          <p className="text-[10px] text-slate-400">
-            Pendaftaran mandiri tidak tersedia &bull; v1.0.0
+            Kepemilikan dan akses terbatas untuk penggunaan internal perusahaan &bull; v1.0.0
           </p>
         </div>
       </div>
