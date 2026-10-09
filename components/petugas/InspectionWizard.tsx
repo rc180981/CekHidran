@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { QrCode, Trash2, ArrowLeft, ArrowRight, Save, Wifi, WifiOff } from 'lucide-react';
+import { QrCode, Trash2, ArrowLeft, ArrowRight, Save, Wifi, WifiOff, AlertTriangle, CheckCircle2, Keyboard } from 'lucide-react';
 import StepIndicator from '@/components/StepIndicator';
 import QrScanner from './QrScanner';
 import CameraCapture from './CameraCapture';
@@ -41,6 +41,10 @@ export default function InspectionWizard({
   const [matchedHydrant, setMatchedHydrant] = useState<CachedHydrant | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
   const [scanMode, setScanMode] = useState<boolean>(true);
+  const [isEmergencyMode, setIsEmergencyMode] = useState<boolean>(false);
+  const [showManualInput, setShowManualInput] = useState<boolean>(false);
+  const [manualQrInput, setManualQrInput] = useState<string>('');
+  const [manualError, setManualError] = useState<string | null>(null);
 
   // Step 2: Foto Kondisi
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
@@ -83,8 +87,54 @@ export default function InspectionWizard({
     }
   }, [initialQr, searchParams]);
 
+  function handleManualSelect(hydrant: CachedHydrant) {
+    setMatchedHydrant(hydrant);
+    setScannedText(hydrant.qr_code || hydrant.number);
+    setIsEmergencyMode(true);
+    setScanMode(false);
+    setScanError(null);
+    setManualError(null);
+    if (!notes.includes('[INPUT DARURAT]')) {
+      setNotes((prev) =>
+        prev
+          ? `${prev}\n[INPUT DARURAT: QR fisik tidak ada/rusak di lokasi]`
+          : '[INPUT DARURAT: QR fisik tidak ada/rusak di lokasi]'
+      );
+    }
+  }
+
+  function handleManualVerify(e?: React.FormEvent) {
+    if (e) e.preventDefault();
+    setManualError(null);
+    const input = manualQrInput.trim();
+    if (!input) {
+      setManualError('Silakan masukkan nomor box hydrant atau value kode QR.');
+      return;
+    }
+
+    const cleanInput = input.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    const found = bundle.hydrants.find((h) => {
+      if (h.qr_code && h.qr_code.toLowerCase() === input.toLowerCase()) return true;
+      if (h.number.toLowerCase() === input.toLowerCase()) return true;
+      const cleanNum = h.number.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (cleanNum === cleanInput) return true;
+      if (h.qr_code && h.qr_code.toLowerCase().includes(cleanInput)) return true;
+      return false;
+    });
+
+    if (found) {
+      handleManualSelect(found);
+    } else {
+      setManualError(
+        `Titik hydrant "${input}" tidak ditemukan dalam daftar tugas Anda. Pastikan format nomor benar (cth: ${bundle.hydrants[0]?.number || 'H-01'}).`
+      );
+    }
+  }
+
   async function handleQrFound(rawText: string) {
     setScanError(null);
+    setIsEmergencyMode(false);
     const trimmed = rawText.trim();
     const code = extractQrCode(trimmed);
     setScannedText(code);
@@ -264,25 +314,142 @@ export default function InspectionWizard({
                 <p className="text-center text-[11px] font-medium text-slate-500">
                   Arahkan kamera ke QR Code di pintu box hydrant
                 </p>
+
+                {/* PANEL INPUT MANUAL QR DARURAT */}
+                <div className="pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowManualInput(!showManualInput);
+                      setManualError(null);
+                    }}
+                    className="w-full py-2.5 px-3 rounded-xl border border-dashed border-amber-300 bg-amber-50/70 hover:bg-amber-100/70 text-amber-900 text-xs font-bold transition-all flex items-center justify-between active:scale-[0.99]"
+                  >
+                    <span className="flex items-center gap-2">
+                      <AlertTriangle size={15} className="text-amber-600 flex-shrink-0" />
+                      <span>QR Rusak / Tidak Ada di Lokasi? (Darurat)</span>
+                    </span>
+                    <span className="text-[11px] text-amber-700 underline font-extrabold">
+                      {showManualInput ? 'Tutup' : 'Input Manual'}
+                    </span>
+                  </button>
+
+                  {showManualInput && (
+                    <div className="mt-2.5 p-3.5 rounded-xl border border-amber-200 bg-amber-50/50 space-y-3 animate-in fade-in duration-150">
+                      <div>
+                        <label htmlFor="manual-qr" className="block text-[11px] font-bold uppercase tracking-wider text-amber-950 mb-1">
+                          Nomor Box Hydrant / Value QR Manual
+                        </label>
+                        <p className="text-[11px] text-slate-600 mb-2 leading-relaxed">
+                          Gunakan opsi darurat ini jika stiker QR tidak tersedia. Masukkan nomor box fisik (cth: <strong>{bundle.hydrants[0]?.number || 'H-01'}</strong>) atau string kode QR.
+                        </p>
+                        <div className="flex gap-2">
+                          <input
+                            id="manual-qr"
+                            type="text"
+                            value={manualQrInput}
+                            onChange={(e) => setManualQrInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleManualVerify();
+                              }
+                            }}
+                            placeholder={`Contoh: ${bundle.hydrants[0]?.number || 'H-01'}`}
+                            className="input h-11 text-xs sm:text-sm font-bold uppercase placeholder:normal-case placeholder:font-normal flex-1 border-amber-300 bg-white focus:border-amber-500 focus:ring-amber-500/20"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleManualVerify()}
+                            className="px-4 h-11 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-95 text-white text-xs font-bold tracking-wider uppercase transition-all shadow-xs flex items-center gap-1.5 flex-shrink-0"
+                          >
+                            <CheckCircle2 size={16} />
+                            <span>VERIFIKASI</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {manualError && (
+                        <div className="p-2.5 bg-red-50 text-red-800 border border-red-200 rounded-lg text-xs font-medium">
+                          {manualError}
+                        </div>
+                      )}
+
+                      {/* Chip Pilihan Cepat Nomor Box yang ditugaskan */}
+                      {bundle.hydrants.length > 0 && (
+                        <div className="pt-1 border-t border-amber-200/70">
+                          <span className="text-[10px] font-bold uppercase text-amber-900 block mb-1.5 tracking-wider">
+                            Atau Pilih Cepat Nomor Box Tersedia:
+                          </span>
+                          <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
+                            {bundle.hydrants.map((h) => (
+                              <button
+                                key={h.id}
+                                type="button"
+                                onClick={() => {
+                                  setManualQrInput(h.number);
+                                  handleManualSelect(h);
+                                }}
+                                className="px-2.5 py-1 rounded-lg text-xs font-black border border-amber-300 bg-white hover:bg-amber-100 text-amber-950 transition-all shadow-xs active:scale-95"
+                              >
+                                {h.number}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 space-y-3">
-                <div className="flex items-center justify-between pb-2 border-b border-emerald-200/70">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-emerald-600 animate-pulse" />
-                    QR CODE TERVERIFIKASI
+              <div
+                className={`rounded-xl border p-4 space-y-3 ${
+                  isEmergencyMode
+                    ? 'border-amber-300 bg-amber-50/70'
+                    : 'border-emerald-200 bg-emerald-50/70'
+                }`}
+              >
+                <div
+                  className={`flex items-center justify-between pb-2 border-b ${
+                    isEmergencyMode ? 'border-amber-300/80' : 'border-emerald-200/70'
+                  }`}
+                >
+                  <span
+                    className={`text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+                      isEmergencyMode ? 'text-amber-900' : 'text-emerald-800'
+                    }`}
+                  >
+                    {isEmergencyMode ? (
+                      <>
+                        <AlertTriangle size={15} className="text-amber-600" />
+                        <span>VERIFIKASI MANUAL DARURAT</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="h-2 w-2 rounded-full bg-emerald-600 animate-pulse" />
+                        <span>QR CODE TERVERIFIKASI</span>
+                      </>
+                    )}
                   </span>
                   <button
                     type="button"
                     onClick={() => {
                       setScanMode(true);
                       setMatchedHydrant(null);
+                      setIsEmergencyMode(false);
                     }}
                     className="text-xs font-bold text-primary hover:text-primary-700 underline"
                   >
                     Pindai Ulang
                   </button>
                 </div>
+
+                {isEmergencyMode && (
+                  <p className="text-[11px] text-amber-800 bg-amber-100/60 p-2 rounded-lg leading-relaxed">
+                    Catatan: Hydrant diverifikasi tanpa scan fisik (Darurat). Keterangan darurat otomatis dicatat di lembar laporan K3.
+                  </p>
+                )}
 
                 {matchedHydrant && (
                   <div className="space-y-2 pt-1">
@@ -291,7 +458,13 @@ export default function InspectionWizard({
                         <span className="text-xs text-slate-500 font-semibold uppercase">Nomor Box Hydrant</span>
                         <p className="font-black text-xl text-slate-900 tracking-wide">{matchedHydrant.number}</p>
                       </div>
-                      <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-white border border-emerald-200 text-emerald-800 shadow-xs">
+                      <span
+                        className={`text-xs font-bold px-2.5 py-1 rounded-lg border shadow-xs ${
+                          isEmergencyMode
+                            ? 'bg-white border-amber-300 text-amber-900'
+                            : 'bg-white border-emerald-200 text-emerald-800'
+                        }`}
+                      >
                         {matchedHydrant.warehouse_name || matchedHydrant.warehouse_id}
                       </span>
                     </div>
@@ -324,8 +497,10 @@ export default function InspectionWizard({
             {/* Rekap info waktu scan */}
             {matchedHydrant && (
               <div className="text-[11px] text-slate-500 border-t border-slate-100 pt-3 flex items-center justify-between">
-                <span>Waktu Scan: <strong>{formatDateTime(new Date())}</strong></span>
-                <span>Petugas: <strong>{bundle.user.name}</strong></span>
+                <span>
+                  Metode: <strong>{isEmergencyMode ? 'MANUAL (DARURAT)' : 'SCAN QR KAMERA'}</strong>
+                </span>
+                <span>Waktu: <strong>{formatDateTime(new Date())}</strong></span>
               </div>
             )}
           </div>
