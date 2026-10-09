@@ -12,11 +12,8 @@ import {
   Calendar,
   User,
   ArrowRight,
-  Search,
-  X,
   ChevronDown,
   ChevronUp,
-  Filter,
 } from 'lucide-react';
 import { listQueue, setBundle, QUEUE_EVENT } from '@/lib/offline/db';
 import { syncQueue } from '@/lib/offline/sync';
@@ -64,9 +61,7 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
   // Tab aktif tampilan daftar: 'checked' (default) atau 'unchecked'
   const [activeTab, setActiveTab] = useState<'checked' | 'unchecked'>('checked');
 
-  // Filter & Search untuk daftar hydrant agar tidak panjang ke bawah
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [selectedWarehouse, setSelectedWarehouse] = useState<string>('all');
+  // ID titik hydrant yang sedang dibuka detailnya (accordion expand)
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Simpan bundle awal ke IndexedDB untuk cadangan offline
@@ -215,50 +210,6 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
 
   const checkedCount = checkedHydrants.length;
   const uncheckedCount = uncheckedHydrants.length;
-
-  // Daftar Gudang untuk filter chip
-  const warehouseList = useMemo(() => {
-    const map = new Map<string, string>();
-    bundle.hydrants.forEach((h) => {
-      const rawId = (h.warehouse_id || '').toLowerCase();
-      const cleanName = h.warehouse_name ? h.warehouse_name.replace(/^gudang\s+/i, '').trim() : rawId.toUpperCase();
-      if (rawId && !map.has(rawId)) {
-        map.set(rawId, cleanName);
-      }
-    });
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-  }, [bundle.hydrants]);
-
-  // Data Terfilter berdasarkan Gudang & Pencarian
-  const filteredChecked = useMemo(() => {
-    return checkedHydrants.filter((h) => {
-      const matchWh =
-        selectedWarehouse === 'all' ||
-        (h.warehouse_id || '').toLowerCase() === selectedWarehouse.toLowerCase();
-      const q = searchQuery.toLowerCase().trim();
-      const matchQuery =
-        !q ||
-        h.number.toLowerCase().includes(q) ||
-        (h.location_name && h.location_name.toLowerCase().includes(q)) ||
-        (h.warehouse_name && h.warehouse_name.toLowerCase().includes(q));
-      return matchWh && matchQuery;
-    });
-  }, [checkedHydrants, selectedWarehouse, searchQuery]);
-
-  const filteredUnchecked = useMemo(() => {
-    return uncheckedHydrants.filter((h) => {
-      const matchWh =
-        selectedWarehouse === 'all' ||
-        (h.warehouse_id || '').toLowerCase() === selectedWarehouse.toLowerCase();
-      const q = searchQuery.toLowerCase().trim();
-      const matchQuery =
-        !q ||
-        h.number.toLowerCase().includes(q) ||
-        (h.location_name && h.location_name.toLowerCase().includes(q)) ||
-        (h.warehouse_name && h.warehouse_name.toLowerCase().includes(q));
-      return matchWh && matchQuery;
-    });
-  }, [uncheckedHydrants, selectedWarehouse, searchQuery]);
 
   return (
     <div className="space-y-3 sm:space-y-4">
@@ -459,71 +410,10 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
           </button>
         </div>
 
-        {/* BILAH PENCARIAN & FILTER GUDANG CEPAT (HEMAT RUANG) */}
-        <div className="space-y-2 pt-0.5">
-          {/* Kolom Pencarian Cepat */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cari nomor box (mis: H-01) atau nama lokasi..."
-              className="w-full h-9 pl-8 pr-8 rounded-xl bg-slate-100/90 border border-slate-200 text-xs font-semibold text-slate-900 placeholder:text-slate-400 placeholder:font-normal focus:bg-white focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all outline-none"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-
-          {/* Chips Filter Gudang Horizontal (jika ada lebih dari 1 gudang) */}
-          {warehouseList.length > 1 && (
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 text-xs">
-              <button
-                type="button"
-                onClick={() => setSelectedWarehouse('all')}
-                className={`px-2.5 py-1 rounded-lg font-bold text-[11px] whitespace-nowrap transition-all select-none ${
-                  selectedWarehouse === 'all'
-                    ? 'bg-slate-900 text-white shadow-2xs'
-                    : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200/60'
-                }`}
-              >
-                Semua Gudang ({bundle.hydrants.length})
-              </button>
-              {warehouseList.map((wh) => {
-                const count = bundle.hydrants.filter(
-                  (h) => (h.warehouse_id || '').toLowerCase() === wh.id.toLowerCase(),
-                ).length;
-                const isSelected = selectedWarehouse.toLowerCase() === wh.id.toLowerCase();
-                return (
-                  <button
-                    key={wh.id}
-                    type="button"
-                    onClick={() => setSelectedWarehouse(isSelected ? 'all' : wh.id)}
-                    className={`px-2.5 py-1 rounded-lg font-bold text-[11px] whitespace-nowrap transition-all select-none ${
-                      isSelected
-                        ? 'bg-primary text-white shadow-2xs'
-                        : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200/60'
-                    }`}
-                  >
-                    Gudang {wh.name} ({count})
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
         {/* LIST KONTEN TAB 1: TITIK YANG SUDAH DI CEK HARI INI (COMPACT ROW) */}
         {activeTab === 'checked' && (
-          <div className="space-y-1.5">
-            {filteredChecked.map((h) => {
+          <div className="space-y-1.5 pt-1">
+            {checkedHydrants.map((h) => {
               const isExpanded = expandedId === h.id;
               const formattedTime = formatCheckDateTime(h.inspectedAt);
               const timeOnly = formattedTime.includes(' ')
@@ -624,16 +514,14 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
               );
             })}
 
-            {filteredChecked.length === 0 && (
+            {checkedHydrants.length === 0 && (
               <div className="p-5 text-center text-xs text-slate-500 border border-dashed border-slate-200 rounded-xl bg-white space-y-1">
                 <Clock size={22} className="text-slate-400 mx-auto" />
                 <p className="font-black text-slate-700 uppercase">
-                  {searchQuery ? 'TIDAK ADA HASIL PENCARIAN' : 'BELUM ADA TITIK YANG DI CEK HARI INI'}
+                  BELUM ADA TITIK HYDRANT YANG DI CEK HARI INI
                 </p>
                 <p className="text-[11px] text-slate-500">
-                  {searchQuery
-                    ? `Tidak ditemukan hydrant dengan kata kunci "${searchQuery}"`
-                    : 'Silakan lakukan inspeksi dengan tombol Mulai Periksa di atas.'}
+                  Silakan lakukan inspeksi dengan tombol Mulai Periksa di atas.
                 </p>
               </div>
             )}
@@ -642,8 +530,8 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
 
         {/* LIST KONTEN TAB 2: TITIK YANG BELUM DI CEK (COMPACT ROW) */}
         {activeTab === 'unchecked' && (
-          <div className="space-y-1.5">
-            {filteredUnchecked.map((h) => {
+          <div className="space-y-1.5 pt-1">
+            {uncheckedHydrants.map((h) => {
               const isExpanded = expandedId === h.id;
               return (
                 <div
@@ -714,16 +602,14 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
               );
             })}
 
-            {filteredUnchecked.length === 0 && (
+            {uncheckedHydrants.length === 0 && (
               <div className="p-5 text-center text-xs text-emerald-700 border border-dashed border-emerald-200 rounded-xl bg-emerald-50/50 space-y-1">
                 <CheckCircle2 size={22} className="text-emerald-600 mx-auto" />
                 <p className="font-black text-emerald-900 uppercase">
-                  {searchQuery ? 'TIDAK ADA HASIL PENCARIAN' : 'SEMUA TITIK TELAH SELESAI DI CEK HARI INI!'}
+                  SEMUA TITIK TELAH SELESAI DI CEK HARI INI!
                 </p>
                 <p className="text-[11px] text-emerald-800">
-                  {searchQuery
-                    ? `Tidak ditemukan hydrant yang cocok dengan "${searchQuery}"`
-                    : 'Luar biasa! Seluruh titik hydrant telah selesai diperiksa hari ini.'}
+                  Luar biasa! Seluruh titik hydrant telah selesai diperiksa hari ini.
                 </p>
               </div>
             )}
