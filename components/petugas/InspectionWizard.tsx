@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { QrCode, Trash2, ArrowLeft, ArrowRight, Save, Wifi, WifiOff, AlertTriangle, CheckCircle2, Keyboard } from 'lucide-react';
+import { QrCode, Trash2, ArrowLeft, ArrowRight, Save, Wifi, WifiOff, AlertTriangle } from 'lucide-react';
 import StepIndicator from '@/components/StepIndicator';
 import QrScanner from './QrScanner';
 import CameraCapture from './CameraCapture';
@@ -43,7 +43,6 @@ export default function InspectionWizard({
   const [scanMode, setScanMode] = useState<boolean>(true);
   const [isEmergencyMode, setIsEmergencyMode] = useState<boolean>(false);
   const [showManualInput, setShowManualInput] = useState<boolean>(false);
-  const [manualQrInput, setManualQrInput] = useState<string>('');
   const [manualError, setManualError] = useState<string | null>(null);
 
   // Step 2: Foto Kondisi
@@ -99,35 +98,6 @@ export default function InspectionWizard({
         prev
           ? `${prev}\n[INPUT DARURAT: QR fisik tidak ada/rusak di lokasi]`
           : '[INPUT DARURAT: QR fisik tidak ada/rusak di lokasi]'
-      );
-    }
-  }
-
-  function handleManualVerify(e?: React.FormEvent) {
-    if (e) e.preventDefault();
-    setManualError(null);
-    const input = manualQrInput.trim();
-    if (!input) {
-      setManualError('Silakan masukkan nomor box hydrant atau value kode QR.');
-      return;
-    }
-
-    const cleanInput = input.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-    const found = bundle.hydrants.find((h) => {
-      if (h.qr_code && h.qr_code.toLowerCase() === input.toLowerCase()) return true;
-      if (h.number.toLowerCase() === input.toLowerCase()) return true;
-      const cleanNum = h.number.toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (cleanNum === cleanInput) return true;
-      if (h.qr_code && h.qr_code.toLowerCase().includes(cleanInput)) return true;
-      return false;
-    });
-
-    if (found) {
-      handleManualSelect(found);
-    } else {
-      setManualError(
-        `Titik hydrant "${input}" tidak ditemukan dalam daftar tugas Anda. Pastikan format nomor benar (cth: ${bundle.hydrants[0]?.number || 'H-01'}).`
       );
     }
   }
@@ -315,7 +285,7 @@ export default function InspectionWizard({
                   Arahkan kamera ke QR Code di pintu box hydrant
                 </p>
 
-                {/* PANEL INPUT MANUAL QR DARURAT */}
+                {/* PANEL PILIH TITIK HYDRANT DARURAT */}
                 <div className="pt-2 border-t border-slate-100">
                   <button
                     type="button"
@@ -327,77 +297,47 @@ export default function InspectionWizard({
                   >
                     <span className="flex items-center gap-2">
                       <AlertTriangle size={15} className="text-amber-600 flex-shrink-0" />
-                      <span>QR Rusak / Tidak Ada di Lokasi? (Darurat)</span>
+                      <span>QR Rusak / Tidak Ada di Lokasi? (Pilihan Darurat)</span>
                     </span>
                     <span className="text-[11px] text-amber-700 underline font-extrabold">
-                      {showManualInput ? 'Tutup' : 'Input Manual'}
+                      {showManualInput ? 'Tutup Pilihan' : 'Pilih Titik Manual'}
                     </span>
                   </button>
 
                   {showManualInput && (
-                    <div className="mt-2.5 p-3.5 rounded-xl border border-amber-200 bg-amber-50/50 space-y-3 animate-in fade-in duration-150">
-                      {/* Dropdown Pilihan Cepat Titik Hydrant & WH */}
-                      {bundle.hydrants.length > 0 && (
-                        <div>
-                          <label htmlFor="emergency-select" className="block text-[11px] font-bold uppercase tracking-wider text-amber-950 mb-1.5">
-                            Pilih Titik Hydrant &amp; Gudang (WH):
-                          </label>
-                          <select
-                            id="emergency-select"
-                            defaultValue=""
-                            onChange={(e) => {
-                              const selectedId = e.target.value;
-                              const found = bundle.hydrants.find((h) => h.id === selectedId);
-                              if (found) {
-                                setManualQrInput(found.number);
-                                handleManualSelect(found);
-                              }
-                            }}
-                            className="input h-11 text-xs sm:text-sm font-bold border-amber-300 bg-white text-slate-800 focus:border-amber-500 focus:ring-amber-500/20 cursor-pointer"
-                          >
-                            <option value="" disabled>-- Pilih Titik Hydrant &amp; Gudang (WH) --</option>
-                            {bundle.hydrants.map((h) => {
-                              const whLabel = h.warehouse_name || h.warehouse_id.toUpperCase();
-                              const locDetail = h.location_name ? ` • ${h.location_name}` : '';
-                              return (
-                                <option key={h.id} value={h.id}>
-                                  {h.number} — {whLabel}{locDetail}
-                                </option>
-                              );
-                            })}
-                          </select>
-                        </div>
-                      )}
-
-                      {/* Atau Ketik Manual Nomor Box / Nilai QR */}
-                      <div className="pt-2 border-t border-amber-200/70">
-                        <label htmlFor="manual-qr" className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
-                          Atau Ketik Manual Nomor Box / Kode QR:
+                    <div className="mt-2.5 p-3.5 rounded-xl border border-amber-200 bg-amber-50/60 space-y-2 animate-in fade-in duration-150">
+                      <div>
+                        <label htmlFor="emergency-select" className="block text-[11px] font-bold uppercase tracking-wider text-amber-950 mb-1.5">
+                          Daftar Titik Hydrant &amp; Gudang:
                         </label>
-                        <div className="flex gap-2">
-                          <input
-                            id="manual-qr"
-                            type="text"
-                            value={manualQrInput}
-                            onChange={(e) => setManualQrInput(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                handleManualVerify();
-                              }
-                            }}
-                            placeholder={`Contoh: ${bundle.hydrants[0]?.number || 'H-01'}`}
-                            className="input h-11 text-xs sm:text-sm font-bold uppercase placeholder:normal-case placeholder:font-normal flex-1 border-amber-300 bg-white focus:border-amber-500 focus:ring-amber-500/20"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleManualVerify()}
-                            className="px-4 h-11 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-95 text-white text-xs font-bold tracking-wider uppercase transition-all shadow-xs flex items-center gap-1.5 flex-shrink-0"
-                          >
-                            <CheckCircle2 size={16} />
-                            <span>VERIFIKASI</span>
-                          </button>
-                        </div>
+                        <p className="text-[11px] text-slate-600 mb-2 leading-relaxed">
+                          Pilih box hydrant di bawah ini untuk melanjutkan pemeriksaan tanpa memindai QR fisik:
+                        </p>
+                        <select
+                          id="emergency-select"
+                          defaultValue=""
+                          onChange={(e) => {
+                            const selectedId = e.target.value;
+                            const found = bundle.hydrants.find((h) => h.id === selectedId);
+                            if (found) {
+                              handleManualSelect(found);
+                            }
+                          }}
+                          className="input h-12 w-full text-xs sm:text-sm font-bold border-amber-300 bg-white text-slate-900 focus:border-amber-500 focus:ring-amber-500/20 cursor-pointer rounded-xl shadow-xs"
+                        >
+                          <option value="" disabled>
+                            -- Pilih Titik Box Hydrant &amp; Gudang --
+                          </option>
+                          {bundle.hydrants.map((h) => {
+                            const whLabel = h.warehouse_name || h.warehouse_id.toUpperCase();
+                            const locDetail = h.location_name ? ` • ${h.location_name}` : '';
+                            return (
+                              <option key={h.id} value={h.id}>
+                                {h.number} — {whLabel}{locDetail}
+                              </option>
+                            );
+                          })}
+                        </select>
                       </div>
 
                       {manualError && (
