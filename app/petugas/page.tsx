@@ -33,6 +33,14 @@ export default function PetugasPage() {
           }
 
           const userWh = (profile.warehouseIds || []).map((w: string) => w.toLowerCase());
+
+          // Ambil daftar master warehouses untuk pemetaan nama
+          const wSnap = await getDocs(collection(db, 'warehouses'));
+          const warehouseMap = new Map<string, string>();
+          wSnap.forEach((doc) => {
+            const d = doc.data();
+            warehouseMap.set(doc.id.toLowerCase(), d.name || doc.id.toUpperCase());
+          });
           
           // Ambil hydrants
           const hSnap = await getDocs(collection(db, 'hydrants'));
@@ -44,6 +52,7 @@ export default function PetugasPage() {
             if (userWh.length === 0 || userWh.includes(docWh)) {
               const qrVal = data.qr_code || '';
               const hash = qrVal ? await sha256Hex(qrVal) : '';
+              const mappedWhName = data.warehouse_name || warehouseMap.get(docWh) || docWh.toUpperCase();
               hydrantsList.push({
                 id: data.id,
                 number: data.number,
@@ -51,7 +60,7 @@ export default function PetugasPage() {
                 location_name: data.location_name,
                 location_type: data.location_type || 'indoor',
                 warehouse_id: data.warehouse_id,
-                warehouse_name: data.warehouse_name || '',
+                warehouse_name: mappedWhName,
                 qr_hash: hash,
                 qr_code: qrVal,
               });
@@ -66,12 +75,18 @@ export default function PetugasPage() {
           });
           itemsList.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
+          const rawWhIds = profile.warehouseIds || [];
+          const assignedNames = rawWhIds.length > 0
+            ? rawWhIds.map((id: string) => warehouseMap.get(id.toLowerCase()) || id.toUpperCase())
+            : Array.from(new Set(hydrantsList.map((h) => h.warehouse_name).filter(Boolean)));
+
           const newB = {
             user: {
               id: profile.id,
               name: profile.name,
               role: profile.role,
               warehouseIds: profile.warehouseIds || [],
+              warehouseNames: assignedNames,
             },
             hydrants: hydrantsList,
             items: itemsList,

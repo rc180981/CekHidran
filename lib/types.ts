@@ -27,7 +27,7 @@ export interface CachedHydrant {
 }
 
 export interface PetugasBundle {
-  user: { id: string; name: string; role: Role; warehouseIds: string[] };
+  user: { id: string; name: string; role: Role; warehouseIds: string[]; warehouseNames?: string[] };
   hydrants: CachedHydrant[];
   items: ChecklistItem[];
   frequency: Frequency;

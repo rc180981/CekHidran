@@ -3,9 +3,23 @@
 @tailwind utilities;
 
 @layer base {
-  html { -webkit-tap-highlight-color: transparent; }
-  body { @apply bg-canvas text-slate-900 antialiased; }
+  html {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    touch-action: manipulation;
+  }
+  body {
+    @apply bg-canvas text-slate-900 antialiased;
+    touch-action: manipulation;
+  }
   h1, h2, h3 { @apply font-bold tracking-tight text-slate-900; }
+}
+
+/* Mencegah auto-zoom pada input form di perangkat mobile (iOS Safari / Chrome) */
+@media (max-width: 768px) {
+  input, select, textarea, .input {
+    font-size: 16px !important;
+  }
 }
 
 @layer components {
