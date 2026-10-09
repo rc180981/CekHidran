@@ -74,24 +74,36 @@ export default function SignaturePad({ onChange }: { onChange: (dataUrl: string 
   }
 
   return (
-    <div>
+    <div className="space-y-2">
       <div className="relative">
         <canvas
           ref={canvasRef}
-          aria-label="Area tanda tangan"
-          className="h-44 w-full touch-none rounded-2xl border-2 border-dashed border-slate-300 bg-white"
+          aria-label="Area tanda tangan digital"
+          className="h-36 sm:h-44 w-full touch-none rounded-xl border-2 border-dashed border-slate-300 bg-white shadow-inner"
           onPointerDown={down}
           onPointerMove={move}
           onPointerUp={up}
           onPointerCancel={up}
         />
-        <span className="pointer-events-none absolute bottom-3 left-4 right-4 border-t border-slate-300 pt-1 text-xs text-slate-400">
-          Tanda tangan petugas
-        </span>
+        <div className="pointer-events-none absolute bottom-2.5 left-4 right-4 flex items-center justify-between border-t border-slate-200 pt-1">
+          <span className="text-[10px] sm:text-xs font-medium text-slate-400">
+            Goreskan tanda tangan di dalam kotak
+          </span>
+          <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">
+            Petugas K3
+          </span>
+        </div>
       </div>
-      <button type="button" onClick={() => setup(true)} className="btn-ghost mt-2">
-        <Eraser size={18} /> Hapus tanda tangan
-      </button>
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => setup(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 active:scale-95 text-xs font-bold text-slate-600 transition-all"
+        >
+          <Eraser size={14} />
+          <span>HAPUS TANDA TANGAN</span>
+        </button>
+      </div>
     </div>
   );
 }

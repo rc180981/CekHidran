@@ -138,32 +138,33 @@ export default function QrScanner({
   return (
     <div className="space-y-3">
       {!useFallback ? (
-        <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-slate-900 shadow-inner">
+        <div className="relative aspect-[4/3] max-h-[320px] sm:max-h-[380px] w-full overflow-hidden rounded-2xl bg-slate-900 shadow-inner">
           <video ref={videoRef} playsInline muted className="h-full w-full object-cover" />
           <div className="pointer-events-none absolute inset-0 grid place-items-center">
-            <div className="h-3/5 w-3/5 rounded-3xl border-4 border-white/90 shadow-[0_0_0_9999px_rgba(0,0,0,0.4)] animate-pulse" />
+            <div className="h-3/5 w-3/5 max-w-[200px] max-h-[200px] rounded-2xl border-4 border-white/90 shadow-[0_0_0_9999px_rgba(0,0,0,0.45)] animate-pulse" />
           </div>
           {!ready && (
-            <p className="absolute inset-0 grid place-items-center text-sm font-medium text-white">
-              Menyiapkan kamera live…
-            </p>
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white bg-slate-900/90">
+              <div className="h-7 w-7 border-3 border-white border-t-transparent rounded-full animate-spin" />
+              <p className="text-xs font-semibold tracking-wide">Menyiapkan kamera live…</p>
+            </div>
           )}
         </div>
       ) : (
-        <div className="card p-6 text-center space-y-4 border-dashed border-2 border-primary/40 bg-teal-50/30">
-          <div className="h-16 w-16 mx-auto rounded-2xl bg-teal-100 flex items-center justify-center text-teal-800">
-            <Camera size={32} />
+        <div className="card p-5 text-center space-y-3.5 border-dashed border-2 border-primary/40 bg-teal-50/30">
+          <div className="h-14 w-14 mx-auto rounded-2xl bg-teal-100 flex items-center justify-center text-teal-800">
+            <Camera size={28} />
           </div>
           <div>
-            <h3 className="font-bold text-sm text-slate-900">Pindai QR Code via Kamera HP</h3>
+            <h3 className="font-bold text-sm text-slate-900 uppercase">Pindai QR Code via Kamera HP</h3>
             <p className="text-xs text-slate-600 mt-1">
-              Klik tombol di bawah untuk membuka kamera bawaan ponsel Anda dan jepret QR Code pada box hydrant.
+              Ketuk tombol di bawah untuk membuka kamera bawaan ponsel dan memotret QR Code pada pintu box hydrant.
             </p>
           </div>
 
-          <label className="btn-primary btn-lg w-full cursor-pointer inline-flex items-center justify-center gap-2">
+          <label className="relative w-full h-12 rounded-xl bg-gradient-to-r from-primary to-teal-800 hover:from-primary-700 hover:to-teal-900 active:scale-[0.98] text-white font-bold text-sm tracking-wide shadow-md shadow-primary/25 transition-all flex items-center justify-center gap-2 cursor-pointer select-none">
             <Camera size={20} />
-            {processingImage ? 'Membaca QR Code…' : 'Buka Kamera & Jepret QR'}
+            <span>{processingImage ? 'MEMBACA QR CODE…' : 'BUKA KAMERA & JEPRET QR'}</span>
             <input
               type="file"
               accept="image/*"
