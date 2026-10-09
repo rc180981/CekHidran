@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { QrCode, Trash2, ArrowLeft, ArrowRight, Save, Wifi, WifiOff, AlertTriangle } from 'lucide-react';
+import { QrCode, Trash2, ArrowLeft, ArrowRight, Save, Wifi, WifiOff, AlertTriangle, Camera } from 'lucide-react';
 import StepIndicator from '@/components/StepIndicator';
 import QrScanner from './QrScanner';
 import CameraCapture from './CameraCapture';
@@ -460,59 +460,106 @@ export default function InspectionWizard({
       {/* LANGKAH 2: FOTO KONDISI */}
       {step === 2 && (
         <div className="space-y-2.5 sm:space-y-3">
-          <div className="card p-3.5 sm:p-4 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <div>
+          <div className="card p-3 sm:p-4 space-y-2.5">
+            {/* Header Langkah 2 */}
+            <div className="flex items-center justify-between pb-1 border-b border-slate-100">
+              <div className="flex items-center gap-1.5">
                 <h2 className="text-xs sm:text-sm font-extrabold text-slate-900 uppercase tracking-wider">
-                  LANGKAH 2: FOTO KONDISI HYDRANT
+                  LANGKAH 2: FOTO KONDISI
                 </h2>
-                <p className="text-[10px] text-slate-500">
-                  Ambil foto fisik box hydrant sebelum pemeriksaan (min 1, maks 3)
-                </p>
+                {matchedHydrant && (
+                  <span className="px-2 py-0.5 rounded-lg bg-primary/10 text-primary text-[10px] font-black border border-primary/20">
+                    {matchedHydrant.number}
+                  </span>
+                )}
               </div>
-              <span className="text-[10px] font-black text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
+              <span
+                className={`text-[10px] font-black px-2 py-0.5 rounded-full border tracking-wider uppercase ${
+                  photos.length > 0
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                    : 'bg-slate-100 text-slate-500 border-slate-200'
+                }`}
+              >
                 {photos.length} / 3 FOTO
               </span>
             </div>
 
-            {photos.length < 3 && (
+            {/* Jendela Kamera / Pesan Penuh */}
+            {photos.length < 3 ? (
               <CameraCapture
                 onCapture={handlePhotoCapture}
                 getStampLines={getStampLines}
                 disabled={photos.length >= 3}
               />
-            )}
-
-            {photos.length > 0 && (
-              <div className="space-y-1.5 pt-1">
-                <p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                  Foto yang telah diambil ({photos.length}):
-                </p>
-                <div className="grid grid-cols-3 gap-2">
-                  {photos.map((p, idx) => (
-                    <div
-                      key={idx}
-                      className="relative aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-100 shadow-xs"
-                    >
-                      <img src={p.previewUrl} alt={`Foto ${idx + 1}`} className="w-full h-full object-cover" />
-                      <span className="absolute bottom-1 left-1 bg-black/60 backdrop-blur-xs text-white text-[9px] font-bold px-1 py-0.2 rounded">
-                        #{idx + 1}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => removePhoto(idx)}
-                        className="absolute top-1 right-1 bg-red-600 text-white p-1 rounded-lg shadow-md hover:bg-red-700 active:scale-90 transition-all"
-                        title="Hapus foto ini"
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    </div>
-                  ))}
+            ) : (
+              <div className="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/80 text-center space-y-1">
+                <div className="flex items-center justify-center gap-1.5 text-emerald-900 font-extrabold text-xs uppercase">
+                  <span className="h-2 w-2 rounded-full bg-emerald-600" />
+                  <span>3 Foto Maksimal Telah Terpenuhi</span>
                 </div>
+                <p className="text-[11px] text-emerald-700">
+                  Foto fisik box hydrant lengkap. Lanjutkan ke pengisian lembar checklist di bawah.
+                </p>
               </div>
             )}
+
+            {/* 3 Slot Kartu Foto Ramping */}
+            <div className="space-y-1.5 pt-1 border-t border-slate-100">
+              <div className="flex items-center justify-between text-[11px] font-bold text-slate-700 uppercase">
+                <span>Dokumentasi Foto ({photos.length}/3):</span>
+                <span className="text-[10px] text-slate-400 font-normal">
+                  {photos.length === 0 ? 'Wajib minimal 1 foto' : 'Foto siap dilampirkan'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                {[0, 1, 2].map((idx) => {
+                  const p = photos[idx];
+                  if (p) {
+                    return (
+                      <div
+                        key={idx}
+                        className="relative aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-100 shadow-xs"
+                      >
+                        <img
+                          src={p.previewUrl}
+                          alt={`Foto ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        <span className="absolute bottom-1 left-1 bg-black/60 backdrop-blur-xs text-white text-[9px] font-bold px-1.5 py-0.2 rounded">
+                          #{idx + 1}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removePhoto(idx)}
+                          className="absolute top-1 right-1 bg-red-600 text-white p-1 rounded-lg shadow-md hover:bg-red-700 active:scale-90 transition-all"
+                          title="Hapus foto ini"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div
+                      key={idx}
+                      className="relative aspect-square rounded-xl border border-dashed border-slate-300 bg-slate-50/70 flex flex-col items-center justify-center text-center p-1"
+                    >
+                      <Camera size={16} className="text-slate-400 mb-0.5" />
+                      <span className="text-[9px] font-bold text-slate-400 uppercase">
+                        Foto #{idx + 1}
+                      </span>
+                      <span className="text-[8px] text-slate-400">
+                        {idx === 0 ? '(Wajib)' : '(Opsional)'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
+          {/* Tombol Navigasi Bawah */}
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
