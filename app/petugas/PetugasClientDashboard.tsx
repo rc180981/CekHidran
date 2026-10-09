@@ -12,6 +12,11 @@ import {
   Calendar,
   User,
   ArrowRight,
+  Search,
+  X,
+  ChevronDown,
+  ChevronUp,
+  Filter,
 } from 'lucide-react';
 import { listQueue, setBundle, QUEUE_EVENT } from '@/lib/offline/db';
 import { syncQueue } from '@/lib/offline/sync';
@@ -58,6 +63,11 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
 
   // Tab aktif tampilan daftar: 'checked' (default) atau 'unchecked'
   const [activeTab, setActiveTab] = useState<'checked' | 'unchecked'>('checked');
+
+  // Filter & Search untuk daftar hydrant agar tidak panjang ke bawah
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedWarehouse, setSelectedWarehouse] = useState<string>('all');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Simpan bundle awal ke IndexedDB untuk cadangan offline
   useEffect(() => {
@@ -205,6 +215,50 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
 
   const checkedCount = checkedHydrants.length;
   const uncheckedCount = uncheckedHydrants.length;
+
+  // Daftar Gudang untuk filter chip
+  const warehouseList = useMemo(() => {
+    const map = new Map<string, string>();
+    bundle.hydrants.forEach((h) => {
+      const rawId = (h.warehouse_id || '').toLowerCase();
+      const cleanName = h.warehouse_name ? h.warehouse_name.replace(/^gudang\s+/i, '').trim() : rawId.toUpperCase();
+      if (rawId && !map.has(rawId)) {
+        map.set(rawId, cleanName);
+      }
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [bundle.hydrants]);
+
+  // Data Terfilter berdasarkan Gudang & Pencarian
+  const filteredChecked = useMemo(() => {
+    return checkedHydrants.filter((h) => {
+      const matchWh =
+        selectedWarehouse === 'all' ||
+        (h.warehouse_id || '').toLowerCase() === selectedWarehouse.toLowerCase();
+      const q = searchQuery.toLowerCase().trim();
+      const matchQuery =
+        !q ||
+        h.number.toLowerCase().includes(q) ||
+        (h.location_name && h.location_name.toLowerCase().includes(q)) ||
+        (h.warehouse_name && h.warehouse_name.toLowerCase().includes(q));
+      return matchWh && matchQuery;
+    });
+  }, [checkedHydrants, selectedWarehouse, searchQuery]);
+
+  const filteredUnchecked = useMemo(() => {
+    return uncheckedHydrants.filter((h) => {
+      const matchWh =
+        selectedWarehouse === 'all' ||
+        (h.warehouse_id || '').toLowerCase() === selectedWarehouse.toLowerCase();
+      const q = searchQuery.toLowerCase().trim();
+      const matchQuery =
+        !q ||
+        h.number.toLowerCase().includes(q) ||
+        (h.location_name && h.location_name.toLowerCase().includes(q)) ||
+        (h.warehouse_name && h.warehouse_name.toLowerCase().includes(q));
+      return matchWh && matchQuery;
+    });
+  }, [uncheckedHydrants, selectedWarehouse, searchQuery]);
 
   return (
     <div className="space-y-3 sm:space-y-4">
@@ -375,7 +429,7 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
         </div>
       </div>
 
-      {/* 5. DAFTAR TITIK HYDRANT */}
+      {/* 5. DAFTAR TITIK HYDRANT (MODE RAMPING / COMPACT & FILTER) */}
       <div className="space-y-2.5 pt-1">
         {/* Tab Toggle: Segmented Control 50% - 50% Otomatis Presisi di Mobile */}
         <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-200/70 rounded-xl border border-slate-300/60">
@@ -405,139 +459,271 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
           </button>
         </div>
 
-        {/* LIST KONTEN TAB 1: TITIK YANG SUDAH DI CEK HARI INI */}
-        {activeTab === 'checked' && (
-          <div className="space-y-2.5">
-            {checkedHydrants.map((h) => (
-              <div
-                key={h.id}
-                className="p-3 sm:p-3.5 rounded-2xl border border-emerald-200/90 bg-white hover:border-emerald-300 transition space-y-2 shadow-2xs"
+        {/* BILAH PENCARIAN & FILTER GUDANG CEPAT (HEMAT RUANG) */}
+        <div className="space-y-2 pt-0.5">
+          {/* Kolom Pencarian Cepat */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Cari nomor box (mis: H-01) atau nama lokasi..."
+              className="w-full h-9 pl-8 pr-8 rounded-xl bg-slate-100/90 border border-slate-200 text-xs font-semibold text-slate-900 placeholder:text-slate-400 placeholder:font-normal focus:bg-white focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all outline-none"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors"
               >
-                {/* Baris 1: Nomor Hydrant, Gudang & Lokasi Tag */}
-                <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-sm sm:text-base font-black text-slate-900 uppercase tracking-wide shrink-0">
-                      {h.number}
-                    </span>
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-teal-50 text-teal-800 border border-teal-200 uppercase tracking-wider truncate">
-                      GUDANG {h.warehouse_name.replace(/^gudang\s+/i, '').trim()}
-                    </span>
-                  </div>
-                  <div className="shrink-0">
-                    <LocationTag type={h.location_type} />
-                  </div>
-                </div>
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
 
-                {/* Baris 2: Nama Lokasi */}
-                <p className="text-xs text-slate-600 font-medium flex items-center gap-1.5 leading-snug">
-                  <MapPin size={13} className="text-slate-400 shrink-0" />
-                  <span className="truncate">{h.location_name}</span>
-                </p>
+          {/* Chips Filter Gudang Horizontal (jika ada lebih dari 1 gudang) */}
+          {warehouseList.length > 1 && (
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 text-xs">
+              <button
+                type="button"
+                onClick={() => setSelectedWarehouse('all')}
+                className={`px-2.5 py-1 rounded-lg font-bold text-[11px] whitespace-nowrap transition-all select-none ${
+                  selectedWarehouse === 'all'
+                    ? 'bg-slate-900 text-white shadow-2xs'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200/60'
+                }`}
+              >
+                Semua Gudang ({bundle.hydrants.length})
+              </button>
+              {warehouseList.map((wh) => {
+                const count = bundle.hydrants.filter(
+                  (h) => (h.warehouse_id || '').toLowerCase() === wh.id.toLowerCase(),
+                ).length;
+                const isSelected = selectedWarehouse.toLowerCase() === wh.id.toLowerCase();
+                return (
+                  <button
+                    key={wh.id}
+                    type="button"
+                    onClick={() => setSelectedWarehouse(isSelected ? 'all' : wh.id)}
+                    className={`px-2.5 py-1 rounded-lg font-bold text-[11px] whitespace-nowrap transition-all select-none ${
+                      isSelected
+                        ? 'bg-primary text-white shadow-2xs'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200/60'
+                    }`}
+                  >
+                    Gudang {wh.name} ({count})
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
-                {/* Baris 3: Info Pengecekan (Nama Petugas, Waktu & Status) */}
-                <div className="rounded-xl bg-emerald-50/60 border border-emerald-200/80 p-2.5 space-y-1.5 text-xs">
-                  {/* Nama Petugas Pemeriksa */}
-                  <div className="flex items-center justify-between gap-1.5">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <User size={13} className="text-emerald-700 shrink-0" />
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider shrink-0">
-                        PETUGAS:
+        {/* LIST KONTEN TAB 1: TITIK YANG SUDAH DI CEK HARI INI (COMPACT ROW) */}
+        {activeTab === 'checked' && (
+          <div className="space-y-1.5">
+            {filteredChecked.map((h) => {
+              const isExpanded = expandedId === h.id;
+              const formattedTime = formatCheckDateTime(h.inspectedAt);
+              const timeOnly = formattedTime.includes(' ')
+                ? formattedTime.split(' ').slice(-2).join(' ')
+                : formattedTime;
+
+              return (
+                <div
+                  key={h.id}
+                  className={`rounded-xl border transition-all overflow-hidden ${
+                    isExpanded
+                      ? 'border-emerald-300 bg-white shadow-xs'
+                      : 'border-slate-200/90 bg-white hover:border-emerald-200'
+                  }`}
+                >
+                  {/* BARIS UTAMA KOMPAK (TINGGI HANYA ~42px) */}
+                  <button
+                    type="button"
+                    onClick={() => setExpandedId(isExpanded ? null : h.id)}
+                    className="w-full px-3 py-2.5 flex items-center justify-between gap-2 text-left select-none active:bg-slate-50 transition-colors"
+                  >
+                    {/* Kiri: Nomor Hydrant & Lokasi Ringkas */}
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="inline-flex items-center justify-center min-w-[44px] h-6 px-1.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-black text-xs shrink-0 tracking-wide">
+                        {h.number}
                       </span>
-                      <span className="font-black text-slate-900 uppercase text-[11px] truncate">
-                        {h.inspectorName}
-                      </span>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-800 truncate leading-tight">
+                          Gudang {h.warehouse_name.replace(/^gudang\s+/i, '').trim()}
+                          <span className="font-normal text-slate-400 mx-1">•</span>
+                          <span className="font-medium text-slate-600">{h.location_name}</span>
+                        </p>
+                      </div>
                     </div>
-                    {h.isOfflineQueue ? (
-                      <span className="text-[9px] sm:text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 uppercase shrink-0">
-                        OFFLINE (LOKAL)
-                      </span>
-                    ) : (
-                      <span className="text-[9px] sm:text-[10px] font-black px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 uppercase shrink-0">
-                        TERVERIFIKASI
-                      </span>
-                    )}
-                  </div>
 
-                  {/* Tanggal & Waktu Pemeriksaan */}
-                  <div className="flex items-center gap-1.5 text-emerald-950 border-t border-emerald-100/80 pt-1.5">
-                    <Calendar size={13} className="text-emerald-700 shrink-0" />
-                    <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wider shrink-0">
-                      WAKTU:
-                    </span>
-                    <span className="text-[11px] font-black truncate">
-                      {formatCheckDateTime(h.inspectedAt)}
-                    </span>
-                  </div>
+                    {/* Kanan: Status Waktu / Offline & Panah Expand */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {h.isOfflineQueue ? (
+                        <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-200 uppercase">
+                          OFFLINE
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50/80 px-2 py-0.5 rounded-md border border-emerald-100">
+                          <CheckCircle2 size={12} className="text-emerald-600 shrink-0" />
+                          <span>{timeOnly}</span>
+                        </span>
+                      )}
+                      <div className="text-slate-400">
+                        {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* DETAIL AKORDEON (MUNCUL HANYA SAAT DIKLIK) */}
+                  {isExpanded && (
+                    <div className="px-3 pb-3 pt-1 border-t border-slate-100 bg-slate-50/60 space-y-2 text-xs animate-in fade-in duration-150">
+                      <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+                        <span className="flex items-center gap-1.5 font-medium text-slate-700 truncate">
+                          <MapPin size={13} className="text-slate-400 shrink-0" />
+                          {h.location_name}
+                        </span>
+                        <LocationTag type={h.location_type} />
+                      </div>
+
+                      <div className="p-2.5 rounded-lg bg-emerald-50/70 border border-emerald-200/70 space-y-1.5 text-xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 truncate">
+                            <User size={13} className="text-emerald-700 shrink-0" />
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">PETUGAS:</span>
+                            <span className="font-bold text-slate-800 truncate">{h.inspectorName}</span>
+                          </div>
+                          {h.isOfflineQueue ? (
+                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 uppercase">
+                              OFFLINE (LOKAL)
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-emerald-200/70 text-emerald-900 uppercase">
+                              TERVERIFIKASI
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1.5 text-emerald-950 border-t border-emerald-200/50 pt-1">
+                          <Calendar size={13} className="text-emerald-700 shrink-0" />
+                          <span className="text-[10px] font-bold text-emerald-800 uppercase">WAKTU LENGKAP:</span>
+                          <span className="font-bold text-[11px]">{formatCheckDateTime(h.inspectedAt)}</span>
+                        </div>
+                      </div>
+
+                      {h.notes && (
+                        <p className="text-[11px] text-slate-600 italic bg-white p-2 rounded-lg border border-slate-200 leading-relaxed">
+                          Catatan: {h.notes}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
+              );
+            })}
 
-                {/* Catatan jika ada */}
-                {h.notes && (
-                  <p className="text-[11px] text-slate-600 italic bg-slate-50 p-2 rounded-lg border border-slate-100 leading-relaxed">
-                    Catatan: {h.notes}
-                  </p>
-                )}
-              </div>
-            ))}
-
-            {checkedHydrants.length === 0 && (
-              <div className="p-6 text-center text-xs text-slate-500 border border-dashed border-slate-200 rounded-xl bg-white space-y-1.5">
-                <Clock size={24} className="text-slate-400 mx-auto" />
+            {filteredChecked.length === 0 && (
+              <div className="p-5 text-center text-xs text-slate-500 border border-dashed border-slate-200 rounded-xl bg-white space-y-1">
+                <Clock size={22} className="text-slate-400 mx-auto" />
                 <p className="font-black text-slate-700 uppercase">
-                  BELUM ADA TITIK HYDRANT YANG DI CEK HARI INI
+                  {searchQuery ? 'TIDAK ADA HASIL PENCARIAN' : 'BELUM ADA TITIK YANG DI CEK HARI INI'}
                 </p>
-                <p className="text-[11px] text-slate-500 leading-relaxed">
-                  Silakan tekan tombol <strong>"MULAI PERIKSA HYDRANT"</strong> di atas untuk mulai melakukan inspeksi.
+                <p className="text-[11px] text-slate-500">
+                  {searchQuery
+                    ? `Tidak ditemukan hydrant dengan kata kunci "${searchQuery}"`
+                    : 'Silakan lakukan inspeksi dengan tombol Mulai Periksa di atas.'}
                 </p>
               </div>
             )}
           </div>
         )}
 
-        {/* LIST KONTEN TAB 2: TITIK YANG BELUM DI CEK */}
+        {/* LIST KONTEN TAB 2: TITIK YANG BELUM DI CEK (COMPACT ROW) */}
         {activeTab === 'unchecked' && (
-          <div className="space-y-2.5">
-            {uncheckedHydrants.map((h) => (
-              <div
-                key={h.id}
-                className="p-3 sm:p-3.5 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 transition space-y-2 shadow-2xs"
-              >
-                {/* Baris 1: Nomor Hydrant, Gudang & Lokasi Tag */}
-                <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-sm sm:text-base font-black text-slate-900 uppercase tracking-wide shrink-0">
-                      {h.number}
-                    </span>
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 uppercase tracking-wider truncate">
-                      GUDANG {h.warehouse_name.replace(/^gudang\s+/i, '').trim()}
-                    </span>
-                  </div>
-                  <div className="shrink-0">
-                    <LocationTag type={h.location_type} />
-                  </div>
+          <div className="space-y-1.5">
+            {filteredUnchecked.map((h) => {
+              const isExpanded = expandedId === h.id;
+              return (
+                <div
+                  key={h.id}
+                  className={`rounded-xl border transition-all overflow-hidden ${
+                    isExpanded
+                      ? 'border-amber-300 bg-white shadow-xs'
+                      : 'border-slate-200 bg-white hover:border-slate-300'
+                  }`}
+                >
+                  {/* BARIS UTAMA KOMPAK (TINGGI HANYA ~42px) */}
+                  <button
+                    type="button"
+                    onClick={() => setExpandedId(isExpanded ? null : h.id)}
+                    className="w-full px-3 py-2.5 flex items-center justify-between gap-2 text-left select-none active:bg-slate-50 transition-colors"
+                  >
+                    {/* Kiri: Nomor Hydrant & Lokasi Ringkas */}
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="inline-flex items-center justify-center min-w-[44px] h-6 px-1.5 rounded-lg bg-slate-100 text-slate-800 border border-slate-300/80 font-black text-xs shrink-0 tracking-wide">
+                        {h.number}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-800 truncate leading-tight">
+                          Gudang {h.warehouse_name.replace(/^gudang\s+/i, '').trim()}
+                          <span className="font-normal text-slate-400 mx-1">•</span>
+                          <span className="font-medium text-slate-600">{h.location_name}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Kanan: Badge Belum & Panah Expand */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                        <Clock size={11} className="text-amber-500 shrink-0" />
+                        <span>Belum</span>
+                      </span>
+                      <div className="text-slate-400">
+                        {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* DETAIL AKORDEON (MUNCUL HANYA SAAT DIKLIK) */}
+                  {isExpanded && (
+                    <div className="px-3 pb-3 pt-1 border-t border-slate-100 bg-slate-50/60 space-y-2.5 text-xs animate-in fade-in duration-150">
+                      <div className="flex items-center justify-between text-[11px] text-slate-600 pt-1">
+                        <span className="flex items-center gap-1.5 font-medium text-slate-700 truncate">
+                          <MapPin size={13} className="text-slate-400 shrink-0" />
+                          {h.location_name}
+                        </span>
+                        <LocationTag type={h.location_type} />
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 pt-1">
+                        <span className="text-[11px] text-amber-800 font-medium">
+                          Titik ini belum diperiksa hari ini.
+                        </span>
+                        <Link
+                          href="/petugas/periksa"
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-dark text-white font-bold text-[11px] shadow-2xs transition-all active:scale-95"
+                        >
+                          Periksa <ArrowRight size={12} />
+                        </Link>
+                      </div>
+                    </div>
+                  )}
                 </div>
+              );
+            })}
 
-                {/* Baris 2: Nama Lokasi */}
-                <p className="text-xs text-slate-600 font-medium flex items-center gap-1.5 leading-snug">
-                  <MapPin size={13} className="text-slate-400 shrink-0" />
-                  <span className="truncate">{h.location_name}</span>
-                </p>
-
-                {/* Baris 3: Status Ringkas */}
-                <div className="pt-0.5 flex items-center gap-1.5 text-[11px] text-amber-700 font-bold">
-                  <Clock size={12} className="text-amber-500 shrink-0" />
-                  <span>Belum Diperiksa Hari Ini</span>
-                </div>
-              </div>
-            ))}
-
-            {uncheckedHydrants.length === 0 && (
-              <div className="p-6 text-center text-xs text-emerald-700 border border-dashed border-emerald-200 rounded-xl bg-emerald-50/50 space-y-1">
-                <CheckCircle2 size={24} className="text-emerald-600 mx-auto" />
+            {filteredUnchecked.length === 0 && (
+              <div className="p-5 text-center text-xs text-emerald-700 border border-dashed border-emerald-200 rounded-xl bg-emerald-50/50 space-y-1">
+                <CheckCircle2 size={22} className="text-emerald-600 mx-auto" />
                 <p className="font-black text-emerald-900 uppercase">
-                  SEMUA TITIK TELAH SELESAI DI CEK HARI INI!
+                  {searchQuery ? 'TIDAK ADA HASIL PENCARIAN' : 'SEMUA TITIK TELAH SELESAI DI CEK HARI INI!'}
                 </p>
-                <p className="text-[11px] text-emerald-800 leading-relaxed">
-                  Luar biasa! Seluruh titik hydrant telah selesai diperiksa hari ini.
+                <p className="text-[11px] text-emerald-800">
+                  {searchQuery
+                    ? `Tidak ditemukan hydrant yang cocok dengan "${searchQuery}"`
+                    : 'Luar biasa! Seluruh titik hydrant telah selesai diperiksa hari ini.'}
                 </p>
               </div>
             )}
