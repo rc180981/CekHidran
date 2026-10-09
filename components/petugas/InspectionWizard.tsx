@@ -336,13 +336,44 @@ export default function InspectionWizard({
 
                   {showManualInput && (
                     <div className="mt-2.5 p-3.5 rounded-xl border border-amber-200 bg-amber-50/50 space-y-3 animate-in fade-in duration-150">
-                      <div>
-                        <label htmlFor="manual-qr" className="block text-[11px] font-bold uppercase tracking-wider text-amber-950 mb-1">
-                          Nomor Box Hydrant / Value QR Manual
+                      {/* Dropdown Pilihan Cepat Titik Hydrant & WH */}
+                      {bundle.hydrants.length > 0 && (
+                        <div>
+                          <label htmlFor="emergency-select" className="block text-[11px] font-bold uppercase tracking-wider text-amber-950 mb-1.5">
+                            Pilih Titik Hydrant &amp; Gudang (WH):
+                          </label>
+                          <select
+                            id="emergency-select"
+                            defaultValue=""
+                            onChange={(e) => {
+                              const selectedId = e.target.value;
+                              const found = bundle.hydrants.find((h) => h.id === selectedId);
+                              if (found) {
+                                setManualQrInput(found.number);
+                                handleManualSelect(found);
+                              }
+                            }}
+                            className="input h-11 text-xs sm:text-sm font-bold border-amber-300 bg-white text-slate-800 focus:border-amber-500 focus:ring-amber-500/20 cursor-pointer"
+                          >
+                            <option value="" disabled>-- Pilih Titik Hydrant &amp; Gudang (WH) --</option>
+                            {bundle.hydrants.map((h) => {
+                              const whLabel = h.warehouse_name || h.warehouse_id.toUpperCase();
+                              const locDetail = h.location_name ? ` • ${h.location_name}` : '';
+                              return (
+                                <option key={h.id} value={h.id}>
+                                  {h.number} — {whLabel}{locDetail}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Atau Ketik Manual Nomor Box / Nilai QR */}
+                      <div className="pt-2 border-t border-amber-200/70">
+                        <label htmlFor="manual-qr" className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                          Atau Ketik Manual Nomor Box / Kode QR:
                         </label>
-                        <p className="text-[11px] text-slate-600 mb-2 leading-relaxed">
-                          Gunakan opsi darurat ini jika stiker QR tidak tersedia. Masukkan nomor box fisik (cth: <strong>{bundle.hydrants[0]?.number || 'H-01'}</strong>) atau string kode QR.
-                        </p>
                         <div className="flex gap-2">
                           <input
                             id="manual-qr"
@@ -372,30 +403,6 @@ export default function InspectionWizard({
                       {manualError && (
                         <div className="p-2.5 bg-red-50 text-red-800 border border-red-200 rounded-lg text-xs font-medium">
                           {manualError}
-                        </div>
-                      )}
-
-                      {/* Chip Pilihan Cepat Nomor Box yang ditugaskan */}
-                      {bundle.hydrants.length > 0 && (
-                        <div className="pt-1 border-t border-amber-200/70">
-                          <span className="text-[10px] font-bold uppercase text-amber-900 block mb-1.5 tracking-wider">
-                            Atau Pilih Cepat Nomor Box Tersedia:
-                          </span>
-                          <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
-                            {bundle.hydrants.map((h) => (
-                              <button
-                                key={h.id}
-                                type="button"
-                                onClick={() => {
-                                  setManualQrInput(h.number);
-                                  handleManualSelect(h);
-                                }}
-                                className="px-2.5 py-1 rounded-lg text-xs font-black border border-amber-300 bg-white hover:bg-amber-100 text-amber-950 transition-all shadow-xs active:scale-95"
-                              >
-                                {h.number}
-                              </button>
-                            ))}
-                          </div>
                         </div>
                       )}
                     </div>
