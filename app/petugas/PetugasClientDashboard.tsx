@@ -118,16 +118,18 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
     try {
       const res = await syncQueue();
       if (res.sent > 0) {
-        setSyncMsg(`${res.sent} pemeriksaan berhasil disinkronkan ke server!`);
+        setSyncMsg(`✓ ${res.sent} pemeriksaan berhasil disinkronkan ke server!`);
       } else if (res.remaining === 0) {
-        setSyncMsg('Semua data sudah tersinkronkan.');
+        setSyncMsg('✓ Semua data antrean sudah tersinkronkan ke server.');
       } else if (res.authRequired) {
-        setSyncMsg('Sesi login telah berakhir. Silakan masuk kembali.');
+        setSyncMsg('Sesi login telah berakhir atau izin server ditolak. Silakan masuk kembali.');
+      } else if (res.failed > 0) {
+        setSyncMsg(`Gagal menyinkronkan: ${res.errorMessage || 'Periksa koneksi internet perangkat Anda.'}`);
       }
       loadQueue();
       loadTodayInspections();
     } catch (err: any) {
-      setSyncMsg('Gagal menyinkronkan data.');
+      setSyncMsg(err?.message ? `Gagal menyinkronkan: ${err.message}` : 'Gagal menyinkronkan data antrean.');
     } finally {
       setSyncing(false);
     }

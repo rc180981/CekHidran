@@ -9,6 +9,7 @@ export interface SyncResult {
   failed: number;
   remaining: number;
   authRequired: boolean;
+  errorMessage?: string;
 }
 
 let running: Promise<SyncResult> | null = null;
@@ -22,6 +23,29 @@ function blobToDataUrl(blob: Blob): Promise<string> {
   });
 }
 
+/** Kompresi gambar blob sebelum dikonversi ke Base64 agar muat dalam batas dokumen Firestore 1MB */
+async function compressImageBlob(blob: Blob, maxWidth = 800, quality = 0.7): Promise<string> {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return blobToDataUrl(blob);
+  }
+  try {
+    const bitmap = await createImageBitmap(blob);
+    const scale = Math.min(1, maxWidth / Math.max(bitmap.width, bitmap.height));
+    const w = Math.round(bitmap.width * scale);
+    const h = Math.round(bitmap.height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return blobToDataUrl(blob);
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    bitmap.close();
+    return canvas.toDataURL('image/jpeg', quality);
+  } catch {
+    return blobToDataUrl(blob);
+  }
+}
+
 /** Kirim seluruh antrean ke server Firestore. Aman dipanggil berulang (satu proses sekaligus). */
 export function syncQueue(): Promise<SyncResult> {
   if (!running) running = doSync().finally(() => (running = null));
@@ -33,23 +57,24 @@ async function doSync(): Promise<SyncResult> {
   let sent = 0;
   let failed = 0;
   let authRequired = false;
+  let lastErrorMessage: string | undefined = undefined;
 
   for (const it of items) {
     if (typeof navigator !== 'undefined' && !navigator.onLine) break;
 
     try {
-      // 1. Konversi foto & ttd ke Base64 Data URL
+      // 1. Konversi foto & ttd ke Base64 Data URL terkompresi (<1MB)
       const photoUrls: string[] = [];
       for (const p of it.photos) {
         if (p.blob) {
-          const url = await blobToDataUrl(p.blob);
+          const url = await compressImageBlob(p.blob, 800, 0.7);
           photoUrls.push(url);
         }
       }
 
       let signatureUrl = '';
       if (it.signature) {
-        signatureUrl = await blobToDataUrl(it.signature);
+        signatureUrl = await compressImageBlob(it.signature, 400, 0.8);
       }
 
       // 2. Simpan dokumen inspeksi ke Firestore
@@ -77,7 +102,7 @@ async function doSync(): Promise<SyncResult> {
         let itemPhotoUrl: string | null = null;
         if (bad.photo?.blob) {
           try {
-            itemPhotoUrl = await blobToDataUrl(bad.photo.blob);
+            itemPhotoUrl = await compressImageBlob(bad.photo.blob, 800, 0.7);
           } catch {}
         }
 
@@ -111,23 +136,27 @@ async function doSync(): Promise<SyncResult> {
     } catch (err: any) {
       console.error('Gagal sinkronisasi antrean ke Firestore:', err);
       const isAuthError = err?.code === 'permission-denied';
+      const msg = isAuthError
+        ? 'Izin database Firebase ditolak. Pastikan akun memiliki hak akses inspeksi.'
+        : err?.message || 'Gagal menyimpan ke server';
+      lastErrorMessage = msg;
       if (isAuthError) {
         authRequired = true;
         await updateQueued({
           ...it,
-          lastError: 'Izin database Firebase ditolak. Pastikan aturan Firestore Rules mengizinkan penulisan.',
+          lastError: msg,
         });
         break;
       }
       await updateQueued({
         ...it,
-        attempts: it.attempts + 1,
-        lastError: err?.message || 'Gagal menyimpan ke Firestore',
+        attempts: (it.attempts || 0) + 1,
+        lastError: msg,
       });
       failed++;
     }
   }
 
   const remaining = (await listQueue()).length;
-  return { sent, failed, remaining, authRequired };
+  return { sent, failed, remaining, authRequired, errorMessage: lastErrorMessage };
 }
