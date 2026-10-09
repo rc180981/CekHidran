@@ -137,44 +137,6 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
     }
   };
 
-  // Opsi droplist gudang
-  const warehouseOptions = useMemo(() => {
-    const map = new Map<string, { id: string; name: string; count: number }>();
-
-    bundle.hydrants.forEach((h) => {
-      const rawId = (h.warehouse_id || '').toLowerCase().trim();
-      const rawName = (h.warehouse_name || rawId)
-        .replace(/^gudang\s+/i, '')
-        .trim()
-        .toUpperCase();
-      const key = rawId || rawName.toLowerCase();
-
-      const existing = map.get(key);
-      if (existing) {
-        existing.count += 1;
-      } else {
-        map.set(key, {
-          id: key,
-          name: rawName || key.toUpperCase(),
-          count: 1,
-        });
-      }
-    });
-
-    (bundle.user.warehouseIds || []).forEach((wId) => {
-      const key = wId.toLowerCase().trim();
-      if (!map.has(key)) {
-        map.set(key, {
-          id: key,
-          name: key.toUpperCase(),
-          count: 0,
-        });
-      }
-    });
-
-    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [bundle.hydrants, bundle.user.warehouseIds]);
-
   // Gabungkan inspeksi Firestore hari ini dengan antrean offline hari ini
   const todayStr = jakartaDate();
   const combinedInspectedMap = useMemo(() => {
@@ -212,28 +174,9 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
     return map;
   }, [todayInspections, queue, todayStr]);
 
-  // Titik yang cocok dengan filter WH di droplist
-  const hydrantsInFilter = useMemo(() => {
-    if (selectedWarehouse === 'all') return bundle.hydrants;
-    return bundle.hydrants.filter((h) => {
-      const rawId = (h.warehouse_id || '').toLowerCase().trim();
-      const rawName = (h.warehouse_name || '')
-        .replace(/^gudang\s+/i, '')
-        .trim()
-        .toLowerCase();
-      const target = selectedWarehouse.toLowerCase().trim();
-      return (
-        rawId === target ||
-        rawName === target ||
-        rawId.includes(target) ||
-        target.includes(rawId)
-      );
-    });
-  }, [bundle.hydrants, selectedWarehouse]);
-
-  // Daftar titik yang SUDAH dicek hari ini
+  // Daftar titik yang SUDAH dicek hari ini (dari seluruh penugasan petugas)
   const checkedHydrants = useMemo(() => {
-    return hydrantsInFilter
+    return bundle.hydrants
       .filter((h) => combinedInspectedMap.has(h.id))
       .map((h) => {
         const info = combinedInspectedMap.get(h.id);
@@ -246,80 +189,91 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
         };
       })
       .sort((a, b) => (b.inspectedAt || '').localeCompare(a.inspectedAt || ''));
-  }, [hydrantsInFilter, combinedInspectedMap]);
+  }, [bundle.hydrants, combinedInspectedMap]);
 
   // Daftar titik yang BELUM dicek hari ini
   const uncheckedHydrants = useMemo(() => {
-    return hydrantsInFilter.filter((h) => !combinedInspectedMap.has(h.id));
-  }, [hydrantsInFilter, combinedInspectedMap]);
-
-  // Label nama gudang aktif
-  const selectedLabel = useMemo(() => {
-    if (selectedWarehouse === 'all') return 'SEMUA GUDANG';
-    const opt = warehouseOptions.find((w) => w.id === selectedWarehouse);
-    return opt ? `GUDANG ${opt.name}` : `GUDANG ${selectedWarehouse.toUpperCase()}`;
-  }, [selectedWarehouse, warehouseOptions]);
+    return bundle.hydrants.filter((h) => !combinedInspectedMap.has(h.id));
+  }, [bundle.hydrants, combinedInspectedMap]);
 
   // Persentase kelengkapan
-  const totalInFilter = hydrantsInFilter.length;
+  const totalPoints = bundle.hydrants.length;
   const checkedCount = checkedHydrants.length;
   const uncheckedCount = uncheckedHydrants.length;
   const percentComplete =
-    totalInFilter > 0 ? Math.round((checkedCount / totalInFilter) * 100) : 0;
+    totalPoints > 0 ? Math.round((checkedCount / totalPoints) * 100) : 0;
 
   return (
-    <div className="space-y-4">
-      {/* 1. HEADER ATAS */}
-      <div className="flex items-center justify-between border-b border-slate-200/70 pb-3">
-        <div className="flex items-center gap-3">
-          <Logo size={38} />
-          <div>
-            <h1 className="text-base font-extrabold text-slate-900 leading-tight tracking-wider uppercase">
-              CEK HIDRAN
-            </h1>
-            <p className="text-[10px] font-bold text-slate-500 tracking-wider uppercase">
-              ANTARMUKA PETUGAS LAPANGAN
-            </p>
+    <div className="space-y-3.5">
+      {/* 1. HEADER ATAS DENGAN ANTREAN OFFLINE TERINTEGRASI */}
+      <div className="border-b border-slate-200/70 pb-3 space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          {/* Logo & Judul */}
+          <div className="flex items-center gap-2.5">
+            <Logo size={36} />
+            <div>
+              <h1 className="text-base font-extrabold text-slate-900 leading-tight tracking-wider uppercase">
+                CEK HIDRAN
+              </h1>
+              <p className="text-[10px] font-bold text-slate-500 tracking-wider uppercase">
+                PETUGAS LAPANGAN
+              </p>
+            </div>
+          </div>
+
+          {/* Sisi Kanan: Antrean Offline & Tombol Keluar */}
+          <div className="flex items-center gap-1.5">
+            {/* Widget Antrean Offline di Header */}
+            <button
+              type="button"
+              onClick={triggerSync}
+              disabled={syncing}
+              title={
+                queue.length > 0
+                  ? `${queue.length} antrean offline siap disinkronkan`
+                  : 'Tidak ada antrean offline'
+              }
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-extrabold transition shadow-2xs ${
+                queue.length > 0
+                  ? 'bg-amber-50 border-amber-300 text-amber-900 hover:bg-amber-100'
+                  : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <span
+                className={`h-2 w-2 rounded-full shrink-0 ${
+                  queue.length > 0 ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'
+                }`}
+              />
+              <span className="text-[10px] uppercase tracking-wide">
+                OFFLINE: <strong>{queue.length}</strong>
+              </span>
+              <RefreshCw
+                size={11}
+                className={`text-slate-500 shrink-0 ${
+                  syncing ? 'animate-spin text-primary' : ''
+                }`}
+              />
+            </button>
+
+            <LogoutButton />
           </div>
         </div>
-        <LogoutButton />
-      </div>
 
-      {/* 2. ANTREAN OFFLINE WIDGET (Tepat di bawah Header, ukuran proporsional) */}
-      <div className="rounded-xl bg-slate-50 border border-slate-200/90 px-3 py-2 flex items-center justify-between shadow-2xs">
-        <div className="flex items-center gap-2">
-          <span
-            className={`h-2.5 w-2.5 rounded-full ${
-              queue.length > 0 ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'
-            }`}
-          />
-          <span className="text-xs font-extrabold text-slate-700 uppercase tracking-wide">
-            ANTREAN OFFLINE: <strong className="text-slate-900">{queue.length}</strong>
-          </span>
-        </div>
-        <button
-          type="button"
-          onClick={triggerSync}
-          disabled={syncing || queue.length === 0}
-          className="btn-secondary text-[11px] min-h-[30px] px-2.5 py-1 uppercase font-extrabold gap-1.5 shadow-2xs"
-        >
-          <RefreshCw size={12} className={syncing ? 'animate-spin' : ''} />
-          {syncing ? 'SINKRON…' : 'SINKRONKAN'}
-        </button>
+        {syncMsg && (
+          <p className="text-[11px] text-slate-600 bg-slate-100 px-2.5 py-1.5 rounded-lg text-center font-medium">
+            {syncMsg}
+          </p>
+        )}
       </div>
-
-      {syncMsg && (
-        <p className="text-xs text-slate-600 bg-slate-100 p-2 rounded-lg text-center font-medium">
-          {syncMsg}
-        </p>
-      )}
 
       {/* ALERT SUKSES PEMERIKSAAN */}
       {showSuccess && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-medium text-emerald-900 flex items-start gap-2.5 shadow-2xs">
           <CheckCircle2 size={16} className="text-emerald-700 shrink-0 mt-0.5" />
           <div>
-            <strong className="font-extrabold tracking-wide uppercase">PEMERIKSAAN BERHASIL DISIMPAN!</strong>
+            <strong className="font-extrabold tracking-wide uppercase">
+              PEMERIKSAAN BERHASIL DISIMPAN!
+            </strong>
             <p className="mt-0.5 text-emerald-800 text-[11px]">
               Data pemeriksaan telah tercatat dan tersimpan dengan aman (lokal / server).
             </p>
@@ -327,56 +281,13 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
         </div>
       )}
 
-      {/* 3. DROPLIST PEMILIHAN GUDANG (WH) */}
-      <div className="card p-3 space-y-2 border-slate-200/90 bg-white shadow-soft">
-        <div className="flex items-center justify-between">
-          <label
-            htmlFor="warehouse-select"
-            className="text-[11px] font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5"
-          >
-            <Building2 size={14} className="text-primary-700 shrink-0" />
-            LOKASI GUDANG (WH):
-          </label>
-          <span className="text-[10px] font-extrabold text-teal-800 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-md uppercase">
-            {selectedWarehouse === 'all' ? 'SEMUA WH' : `WH ${selectedWarehouse.toUpperCase()}`}
-          </span>
-        </div>
-
-        <div className="relative">
-          <select
-            id="warehouse-select"
-            value={selectedWarehouse}
-            onChange={(e) => setSelectedWarehouse(e.target.value)}
-            className="w-full min-h-[44px] appearance-none rounded-xl border border-slate-300 bg-white px-3 pr-9 text-xs font-extrabold text-slate-900 tracking-wider uppercase transition focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/20 cursor-pointer shadow-2xs"
-          >
-            <option value="all">
-              SEMUA GUDANG (TOTAL {bundle.hydrants.length} TITIK)
-            </option>
-            {warehouseOptions.map((wh) => (
-              <option key={wh.id} value={wh.id}>
-                GUDANG {wh.name} ({wh.count} TITIK)
-              </option>
-            ))}
-          </select>
-          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
-            <svg
-              className="h-4 w-4 fill-current"
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
-            >
-              <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
-            </svg>
-          </div>
-        </div>
-      </div>
-
-      {/* 4. INFORMASI SEDERHANA: NAMA PETUGAS & FREKUENSI */}
-      <div className="flex items-center justify-between px-1">
+      {/* 2. INFORMASI SEDERHANA: NAMA PETUGAS & FREKUENSI */}
+      <div className="flex items-center justify-between px-1 pt-0.5">
         <div className="flex items-center gap-1.5">
           <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
             PETUGAS:
           </span>
-          <span className="text-sm font-extrabold text-slate-900 uppercase tracking-wide">
+          <span className="text-sm font-black text-slate-900 uppercase tracking-wide">
             {bundle.user.name}
           </span>
         </div>
@@ -385,7 +296,7 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
         </span>
       </div>
 
-      {/* 5. TOMBOL UTAMA: MULAI PERIKSA HYDRANT (SCAN QR) */}
+      {/* 3. TOMBOL UTAMA: MULAI PERIKSA HYDRANT (SCAN QR) */}
       <div>
         <Link
           href="/petugas/periksa"
@@ -396,13 +307,13 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
         </Link>
       </div>
 
-      {/* 6. CARD STATISTIK: SUDAH DI CEK & BELUM DI CEK */}
+      {/* 4. CARD STATISTIK: SUDAH DI CEK & BELUM DI CEK */}
       <div className="space-y-2">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2.5">
           {/* Card Sudah Di Cek */}
           <div
             onClick={() => setActiveTab('checked')}
-            className={`card p-3.5 space-y-1.5 border-2 transition cursor-pointer ${
+            className={`card p-3 space-y-1.5 border-2 transition cursor-pointer ${
               activeTab === 'checked'
                 ? 'border-emerald-500 bg-emerald-50/70 shadow-sm'
                 : 'border-slate-200 bg-white hover:border-emerald-200'
@@ -419,7 +330,7 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
                 {checkedCount}
               </span>
               <span className="text-[11px] font-bold text-emerald-600 uppercase">
-                / {totalInFilter} TITIK
+                / {totalPoints} TITIK
               </span>
             </div>
             <p className="text-[10px] font-bold text-emerald-700/80 uppercase tracking-wide">
@@ -430,7 +341,7 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
           {/* Card Belum Di Cek */}
           <div
             onClick={() => setActiveTab('unchecked')}
-            className={`card p-3.5 space-y-1.5 border-2 transition cursor-pointer ${
+            className={`card p-3 space-y-1.5 border-2 transition cursor-pointer ${
               activeTab === 'unchecked'
                 ? 'border-amber-500 bg-amber-50/70 shadow-sm'
                 : 'border-slate-200 bg-white hover:border-amber-200'
@@ -447,7 +358,7 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
                 {uncheckedCount}
               </span>
               <span className="text-[11px] font-bold text-amber-600 uppercase">
-                / {totalInFilter} TITIK
+                / {totalPoints} TITIK
               </span>
             </div>
             <p className="text-[10px] font-bold text-amber-700/80 uppercase tracking-wide">
@@ -459,7 +370,7 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
         {/* Progress Bar Kelengkapan */}
         <div className="rounded-lg bg-slate-100 p-2 border border-slate-200/80 space-y-1">
           <div className="flex items-center justify-between text-[11px] font-extrabold uppercase">
-            <span className="text-slate-600">PROGRESS PENGECEKAN {selectedLabel}:</span>
+            <span className="text-slate-600">PROGRESS PENGECEKAN HARI INI:</span>
             <span className="text-teal-900 font-black">{percentComplete}% SELESAI</span>
           </div>
           <div className="h-2 w-full rounded-full bg-slate-200 overflow-hidden">
@@ -471,8 +382,8 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
         </div>
       </div>
 
-      {/* 7. DAFTAR TITIK HYDRANT */}
-      <div className="space-y-2.5 pt-1">
+      {/* 5. DAFTAR TITIK HYDRANT */}
+      <div className="space-y-2 pt-1">
         {/* Tab Toggle: Sudah Di Cek vs Belum Di Cek */}
         <div className="flex items-center justify-between border-b border-slate-200 pb-2 px-0.5">
           <div className="flex items-center gap-1.5">
@@ -500,13 +411,13 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
             </button>
           </div>
           <span className="text-[10px] font-black text-slate-400 uppercase">
-            {selectedLabel}
+            TOTAL {totalPoints} TITIK
           </span>
         </div>
 
         {/* LIST KONTEN TAB 1: TITIK YANG SUDAH DI CEK HARI INI */}
         {activeTab === 'checked' && (
-          <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
+          <div className="space-y-2 max-h-[390px] overflow-y-auto pr-1">
             {checkedHydrants.map((h) => (
               <div
                 key={h.id}
@@ -573,7 +484,7 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
 
         {/* LIST KONTEN TAB 2: TITIK YANG BELUM DI CEK */}
         {activeTab === 'unchecked' && (
-          <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
+          <div className="space-y-2 max-h-[390px] overflow-y-auto pr-1">
             {uncheckedHydrants.map((h) => (
               <div
                 key={h.id}
@@ -617,7 +528,7 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
                   SEMUA TITIK TELAH SELESAI DI CEK HARI INI!
                 </p>
                 <p className="text-[11px] text-emerald-800">
-                  Luar biasa! Seluruh titik hydrant untuk {selectedLabel} telah diperiksa.
+                  Luar biasa! Seluruh {totalPoints} titik hydrant telah selesai diperiksa hari ini.
                 </p>
               </div>
             )}
