@@ -77,7 +77,30 @@ async function doSync(): Promise<SyncResult> {
         signatureUrl = await compressImageBlob(it.signature, 400, 0.8);
       }
 
-      // 2. Simpan dokumen inspeksi ke Firestore
+      // 2. Bersihkan and sanitasi results (konversi blob foto per checklist ke Base64, hapus custom Blob object)
+      const cleanResults = [];
+      for (const r of it.results || []) {
+        let itemPhotoUrl: string | null = null;
+        if (r.photo?.blob) {
+          try {
+            itemPhotoUrl = await compressImageBlob(r.photo.blob, 800, 0.7);
+          } catch (e) {
+            console.warn('Gagal kompresi foto checklist item:', e);
+          }
+        } else if (typeof (r as any).photo_url === 'string') {
+          itemPhotoUrl = (r as any).photo_url;
+        }
+
+        cleanResults.push({
+          checklistItemId: r.checklistItemId,
+          result: r.result,
+          notes: r.notes || '',
+          photo_url: itemPhotoUrl,
+          taken_at: r.photo?.takenAt || null,
+        });
+      }
+
+      // 3. Simpan dokumen inspeksi ke Firestore (bersih dari custom Blob object)
       const insDoc = {
         id: it.id,
         user_id: it.userId || auth.currentUser?.uid || 'petugas',
@@ -86,7 +109,7 @@ async function doSync(): Promise<SyncResult> {
         qr_code: it.qrCode,
         inspected_at: it.inspectedAt,
         notes: it.notes || '',
-        results: it.results || [],
+        results: cleanResults,
         photos: photoUrls,
         signature_url: signatureUrl,
         created_at: it.createdAt || new Date().toISOString(),
@@ -95,18 +118,11 @@ async function doSync(): Promise<SyncResult> {
 
       await setDoc(doc(db, 'inspections', it.id), insDoc, { merge: true });
 
-      // 3. Jika ada checklist berstatus 'tidak_baik', buat temuan otomatis di Firestore
-      const badItems = (it.results || []).filter((r: any) => r.result === 'tidak_baik');
+      // 4. Jika ada checklist berstatus 'tidak_baik', buat temuan otomatis di Firestore
+      const badItems = cleanResults.filter((r: any) => r.result === 'tidak_baik');
       for (const bad of badItems) {
         const findingId = `${it.id}_${bad.checklistItemId}`;
-        let itemPhotoUrl: string | null = null;
-        if (bad.photo?.blob) {
-          try {
-            itemPhotoUrl = await compressImageBlob(bad.photo.blob, 800, 0.7);
-          } catch {}
-        }
-
-        const findingPhotos = itemPhotoUrl ? [itemPhotoUrl] : photoUrls;
+        const findingPhotos = bad.photo_url ? [bad.photo_url] : photoUrls;
 
         await setDoc(
           doc(db, 'findings', findingId),
@@ -123,7 +139,7 @@ async function doSync(): Promise<SyncResult> {
             status: 'terbuka',
             reported_by: it.userId || auth.currentUser?.uid || 'petugas',
             created_at: it.inspectedAt || new Date().toISOString(),
-            photo_url: itemPhotoUrl || (photoUrls.length > 0 ? photoUrls[0] : null),
+            photo_url: bad.photo_url || (photoUrls.length > 0 ? photoUrls[0] : null),
             photos: findingPhotos,
           },
           { merge: true },
