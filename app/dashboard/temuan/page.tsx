@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/client';
 import { Card, StatusBadge } from '@/components/ui';
-import { formatDate } from '@/lib/period';
+import { formatDate, formatDateTime } from '@/lib/period';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -17,6 +17,7 @@ import {
   ShieldAlert,
   Building2,
   Calendar,
+  User,
 } from 'lucide-react';
 
 export default function TemuanPage() {
@@ -25,6 +26,7 @@ export default function TemuanPage() {
   const [findings, setFindings] = useState<any[]>([]);
   const [inspections, setInspections] = useState<any[]>([]);
   const [hydrants, setHydrants] = useState<any[]>([]);
+  const [profiles, setProfiles] = useState<any[]>([]);
 
   // Filter Status
   const [statusFilter, setStatusFilter] = useState<'all' | 'terbuka' | 'dalam_perbaikan' | 'selesai'>('all');
@@ -39,10 +41,11 @@ export default function TemuanPage() {
 
   const fetchData = async () => {
     try {
-      const [fSnap, iSnap, hSnap] = await Promise.all([
+      const [fSnap, iSnap, hSnap, pSnap] = await Promise.all([
         getDocs(collection(db, 'findings')),
         getDocs(collection(db, 'inspections')),
         getDocs(collection(db, 'hydrants')),
+        getDocs(collection(db, 'profiles')),
       ]);
 
       const fList: any[] = [];
@@ -59,11 +62,22 @@ export default function TemuanPage() {
       const hList: any[] = [];
       hSnap.forEach((d) => hList.push({ id: d.id, ...d.data() }));
       setHydrants(hList);
+
+      const pList: any[] = [];
+      pSnap.forEach((d) => pList.push({ id: d.id, ...d.data() }));
+      setProfiles(pList);
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
     }
+  };
+
+  const getInspectorName = (userId?: string, fallbackName?: string): string => {
+    if (fallbackName && fallbackName !== 'petugas' && fallbackName !== '-') return fallbackName;
+    if (!userId) return 'Petugas';
+    const found = profiles.find((p) => p.id === userId || p.email === userId);
+    return found?.name || fallbackName || 'Petugas';
   };
 
   useEffect(() => {
@@ -173,46 +187,47 @@ export default function TemuanPage() {
             ])
           ).filter(Boolean);
 
-          // 2. Cari inspeksi terdahulu di hydrant yang sama yang memiliki foto
+          // 2. Cari inspeksi terdahulu di titik hydrant yang sama (inspeksi terakhir sebelum temuan ini)
           const fTime = parseTime(currentIns?.inspected_at || f.created_at);
           const prevIns = inspections.find((i) => {
             const isSameHydrant = String(i.hydrant_id || '').toLowerCase() === String(f.hydrant_id || '').toLowerCase();
             const isDifferentInspection = i.id !== currentIns?.id && i.id !== f.inspection_id;
             const iTime = parseTime(i.inspected_at);
             const isOlder = iTime ? iTime < fTime : false;
-            const hasPhotos = Array.isArray(i.photos) && i.photos.length > 0;
-            return isSameHydrant && isDifferentInspection && isOlder && hasPhotos;
+            return isSameHydrant && isDifferentInspection && isOlder;
           });
 
-          // Tentukan Foto Normal (Lalu) & Foto Temuan (Saat Ini)
+          // SISI KIRI: Foto & Informasi Pengecekan Terakhir (Kondisi Normal / Terdahulu)
           let previousPhoto: string | null = null;
-          let previousTitle = 'Kondisi Normal (Lalu)';
-          let previousSub = prevIns ? formatDate(prevIns.inspected_at) : 'Arsip Awal';
-          let currentPhoto: string | null = null;
-          let currentTitle = 'Bukti Temuan (Saat Ini)';
-          let currentSub = formatDate(f.created_at || currentIns?.inspected_at);
+          let previousTitle = 'Pengecekan Terakhir (Sebelum Temuan)';
+          let previousDate = '-';
+          let previousInspector = '-';
+          let hasPrevInspection = false;
 
-          if (prevIns && prevIns.photos && prevIns.photos.length > 0) {
-            // Skenario A: Ada riwayat inspeksi sebelumnya yang punya foto
-            previousPhoto = prevIns.photos[0];
-            previousTitle = '🟢 Kondisi Normal (Terdahulu)';
-            previousSub = formatDate(prevIns.inspected_at);
-            currentPhoto = allCurrentPhotos.length > 0 ? allCurrentPhotos[allCurrentPhotos.length - 1] : null;
-          } else if (allCurrentPhotos.length >= 2) {
-            // Skenario B: Belum ada inspeksi hari sebelumnya, tapi petugas mengambil 2 foto atau lebih saat pemeriksaan ini!
-            // Foto 1 = Foto tampak kondisi luar box sebelum diperiksa
-            // Foto terakhir = Foto detail kerusakan/temuan
-            previousPhoto = allCurrentPhotos[0];
-            previousTitle = '📷 Tampak Fisik Awal / Box';
-            previousSub = 'Foto Saat Pemeriksaan';
-            currentPhoto = allCurrentPhotos[allCurrentPhotos.length - 1];
-          } else if (allCurrentPhotos.length === 1) {
-            // Skenario C: Petugas mengambil 1 foto saat inspeksi ini dan ini adalah catatan pertama
-            currentPhoto = allCurrentPhotos[0];
-            previousPhoto = null;
-            previousTitle = '🟢 Kondisi Lalu (Arsip Awal)';
-            previousSub = 'Pemeriksaan Perdana';
+          if (prevIns) {
+            hasPrevInspection = true;
+            previousDate = formatDateTime(prevIns.inspected_at);
+            previousInspector = getInspectorName(prevIns.user_id, prevIns.user_name || prevIns.userName);
+            if (Array.isArray(prevIns.photos) && prevIns.photos.length > 0) {
+              previousPhoto = prevIns.photos[0];
+            }
+          } else {
+            previousTitle = 'Pengecekan Terakhir (Arsip Awal)';
+            previousDate = 'Pemeriksaan Perdana';
+            previousInspector = '-';
           }
+
+          // SISI KANAN: Foto & Informasi Bukti Temuan Kerusakan (Saat Ini)
+          const currentPhoto: string | null =
+            f.photo_url ||
+            (Array.isArray(f.photos) && f.photos[0]) ||
+            (allCurrentPhotos.length > 0 ? allCurrentPhotos[0] : null);
+          const currentTitle = 'Bukti Temuan Kerusakan (Saat Ini)';
+          const currentDate = formatDateTime(f.created_at || currentIns?.inspected_at);
+          const currentInspector = getInspectorName(
+            f.reported_by || currentIns?.user_id,
+            f.reported_by_name || currentIns?.user_name || currentIns?.userName
+          );
 
           return (
             <Card key={f.id} className="p-5 shadow-sm border border-slate-200">
@@ -252,116 +267,162 @@ export default function TemuanPage() {
                   <p className="text-red-900 leading-relaxed font-medium">{f.description}</p>
                 </div>
 
-                {/* KOMPARASI FOTO BERDAMPINGAN */}
+                {/* KOMPARASI FOTO BERDAMPINGAN: KIRI (PENGECEKAN TERAKHIR) VS KANAN (TEMUAN KERUSAKAN) */}
                 <div className="pt-2">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-2 flex items-center gap-1.5">
                     <ImageIcon size={14} className="text-primary" /> Perbandingan Bukti Foto (Normal vs Temuan)
                   </h4>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {/* FOTO 1: KONDISI NORMAL SEBELUMNYA ATAU TAMPAK AWAL */}
-                    <div className="rounded-xl border border-emerald-200 bg-emerald-50/30 p-2.5 flex items-center gap-3">
-                      {previousPhoto ? (
-                        <div
-                          onClick={() =>
-                            setLightbox({
-                              src: previousPhoto,
-                              caption: `${previousTitle} - ${hydrant?.number || 'Hydrant'} (${previousSub})`,
-                            })
-                          }
-                          className="relative w-28 h-20 sm:w-32 sm:h-20 rounded-lg overflow-hidden bg-slate-900 cursor-pointer group shadow-sm border border-emerald-300 shrink-0"
-                          title="Klik untuk melihat ukuran normal"
-                        >
-                          <img
-                            src={previousPhoto}
-                            alt="Foto Kondisi Normal / Awal"
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                          />
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold gap-1">
-                            <Eye size={13} /> Zoom
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="w-28 h-20 sm:w-32 sm:h-20 rounded-lg border-2 border-dashed border-emerald-200 bg-white flex flex-col items-center justify-center text-center p-1 text-emerald-600 shrink-0">
-                          <CheckCircle2 size={18} className="opacity-60" />
-                          <span className="text-[10px] font-medium leading-tight mt-1">Arsip Awal</span>
-                        </div>
-                      )}
-
-                      <div className="text-xs space-y-1 overflow-hidden">
-                        <div className="font-bold text-emerald-800 flex items-center gap-1">
+                    {/* FOTO 1: PENGECEKAN TERAKHIR (KONDISI NORMAL / TERDAHULU) */}
+                    <div className="rounded-xl border border-emerald-200 bg-emerald-50/30 p-3 flex flex-col justify-between gap-2.5">
+                      <div className="flex items-center justify-between border-b border-emerald-200/60 pb-1.5">
+                        <span className="font-bold text-xs text-emerald-900 flex items-center gap-1.5">
+                          <CheckCircle2 size={13} className="text-emerald-700" />
                           {previousTitle}
-                        </div>
-                        <div className="text-[11px] text-emerald-700 truncate">
-                          {previousSub}
-                        </div>
-                        {previousPhoto && (
-                          <button
-                            type="button"
+                        </span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                          NORMAL
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        {previousPhoto ? (
+                          <div
                             onClick={() =>
                               setLightbox({
                                 src: previousPhoto,
-                                caption: `${previousTitle} - ${hydrant?.number || 'Hydrant'} (${previousSub})`,
+                                caption: `${previousTitle} - ${hydrant?.number || 'Hydrant'} • ${previousDate} • Petugas: ${previousInspector}`,
                               })
                             }
-                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 hover:underline"
+                            className="relative w-28 h-20 sm:w-32 sm:h-22 rounded-lg overflow-hidden bg-slate-900 cursor-pointer group shadow-xs border border-emerald-300 shrink-0"
+                            title="Klik untuk melihat ukuran normal"
                           >
-                            <Eye size={12} /> Buka Ukuran Normal
-                          </button>
+                            <img
+                              src={previousPhoto}
+                              alt="Foto Pengecekan Terakhir"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold gap-1">
+                              <Eye size={13} /> Zoom
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="w-28 h-20 sm:w-32 sm:h-22 rounded-lg border-2 border-dashed border-emerald-200 bg-white flex flex-col items-center justify-center text-center p-2 text-emerald-600 shrink-0">
+                            <CheckCircle2 size={18} className="opacity-60" />
+                            <span className="text-[10px] font-medium leading-tight mt-1">
+                              {hasPrevInspection ? 'Tanpa Lampiran Foto' : 'Pemeriksaan Perdana'}
+                            </span>
+                          </div>
                         )}
+
+                        {/* INFORMASI TANGGAL & PETUGAS PEMERIKSA TERAKHIR */}
+                        <div className="text-xs space-y-1.5 overflow-hidden flex-1">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5 text-slate-700">
+                              <Calendar size={13} className="text-emerald-700 shrink-0" />
+                              <span className="text-[11px] font-bold text-slate-900 truncate">
+                                {previousDate}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-slate-700">
+                              <User size={13} className="text-emerald-700 shrink-0" />
+                              <span className="text-[11px] font-semibold text-slate-800 truncate">
+                                Petugas: <strong>{previousInspector}</strong>
+                              </span>
+                            </div>
+                          </div>
+
+                          {previousPhoto && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setLightbox({
+                                  src: previousPhoto,
+                                  caption: `${previousTitle} - ${hydrant?.number || 'Hydrant'} • ${previousDate} • Petugas: ${previousInspector}`,
+                                })
+                              }
+                              className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 hover:underline pt-0.5"
+                            >
+                              <Eye size={12} /> Buka Ukuran Normal
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    {/* FOTO 2: SAAT TEMUAN KERUSAKAN */}
-                    <div className="rounded-xl border border-red-200 bg-red-50/40 p-2.5 flex items-center gap-3">
-                      {currentPhoto ? (
-                        <div
-                          onClick={() =>
-                            setLightbox({
-                              src: currentPhoto,
-                              caption: `Foto Bukti Temuan Kerusakan - ${hydrant?.number || 'Hydrant'} (${currentSub})`,
-                            })
-                          }
-                          className="relative w-28 h-20 sm:w-32 sm:h-20 rounded-lg overflow-hidden bg-slate-900 cursor-pointer group shadow-sm border border-red-300 shrink-0"
-                          title="Klik untuk melihat ukuran normal"
-                        >
-                          <img
-                            src={currentPhoto}
-                            alt="Foto Temuan Kerusakan"
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                          />
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold gap-1">
-                            <Eye size={13} /> Zoom
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="w-28 h-20 sm:w-32 sm:h-20 rounded-lg border-2 border-dashed border-red-200 bg-white flex flex-col items-center justify-center text-center p-1 text-red-600 shrink-0">
-                          <AlertTriangle size={18} className="opacity-60" />
-                          <span className="text-[10px] font-medium leading-tight mt-1">Belum Ada Foto</span>
-                        </div>
-                      )}
+                    {/* FOTO 2: SAAT TEMUAN KERUSAKAN (SAAT INI) */}
+                    <div className="rounded-xl border border-red-200 bg-red-50/40 p-3 flex flex-col justify-between gap-2.5">
+                      <div className="flex items-center justify-between border-b border-red-200/60 pb-1.5">
+                        <span className="font-bold text-xs text-red-900 flex items-center gap-1.5">
+                          <AlertTriangle size={13} className="text-red-700" />
+                          {currentTitle}
+                        </span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-800">
+                          TEMUAN K3
+                        </span>
+                      </div>
 
-                      <div className="text-xs space-y-1 overflow-hidden">
-                        <div className="font-bold text-red-800 flex items-center gap-1">
-                          🔴 {currentTitle}
-                        </div>
-                        <div className="text-[11px] text-red-700 truncate">
-                          {currentSub}
-                        </div>
-                        {currentPhoto && (
-                          <button
-                            type="button"
+                      <div className="flex items-center gap-3">
+                        {currentPhoto ? (
+                          <div
                             onClick={() =>
                               setLightbox({
                                 src: currentPhoto,
-                                caption: `Foto Bukti Temuan Kerusakan - ${hydrant?.number || 'Hydrant'} (${currentSub})`,
+                                caption: `Bukti Temuan Kerusakan - ${hydrant?.number || 'Hydrant'} • ${currentDate} • Pelapor: ${currentInspector}`,
                               })
                             }
-                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-800 hover:underline"
+                            className="relative w-28 h-20 sm:w-32 sm:h-22 rounded-lg overflow-hidden bg-slate-900 cursor-pointer group shadow-xs border border-red-300 shrink-0"
+                            title="Klik untuk melihat ukuran normal"
                           >
-                            <Eye size={12} /> Buka Ukuran Normal
-                          </button>
+                            <img
+                              src={currentPhoto}
+                              alt="Foto Temuan Kerusakan"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold gap-1">
+                              <Eye size={13} /> Zoom
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="w-28 h-20 sm:w-32 sm:h-22 rounded-lg border-2 border-dashed border-red-200 bg-white flex flex-col items-center justify-center text-center p-2 text-red-600 shrink-0">
+                            <AlertTriangle size={18} className="opacity-60" />
+                            <span className="text-[10px] font-medium leading-tight mt-1">Belum Ada Foto</span>
+                          </div>
                         )}
+
+                        {/* INFORMASI TANGGAL & PETUGAS PELAPOR TEMUAN */}
+                        <div className="text-xs space-y-1.5 overflow-hidden flex-1">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5 text-slate-700">
+                              <Calendar size={13} className="text-red-700 shrink-0" />
+                              <span className="text-[11px] font-bold text-slate-900 truncate">
+                                {currentDate}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-slate-700">
+                              <User size={13} className="text-red-700 shrink-0" />
+                              <span className="text-[11px] font-semibold text-slate-800 truncate">
+                                Pelapor: <strong>{currentInspector}</strong>
+                              </span>
+                            </div>
+                          </div>
+
+                          {currentPhoto && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setLightbox({
+                                  src: currentPhoto,
+                                  caption: `Bukti Temuan Kerusakan - ${hydrant?.number || 'Hydrant'} • ${currentDate} • Pelapor: ${currentInspector}`,
+                                })
+                              }
+                              className="inline-flex items-center gap-1 text-[11px] font-bold text-red-800 hover:underline pt-0.5"
+                            >
+                              <Eye size={12} /> Buka Ukuran Normal
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>

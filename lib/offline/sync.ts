@@ -104,6 +104,7 @@ async function doSync(): Promise<SyncResult> {
       const insDoc = {
         id: it.id,
         user_id: it.userId || auth.currentUser?.uid || 'petugas',
+        user_name: it.userName || auth.currentUser?.displayName || 'Petugas',
         hydrant_id: it.hydrantId,
         hydrant_label: it.hydrantLabel,
         qr_code: it.qrCode,
@@ -138,6 +139,7 @@ async function doSync(): Promise<SyncResult> {
               : 'Kondisi tidak baik saat pemeriksaan',
             status: 'terbuka',
             reported_by: it.userId || auth.currentUser?.uid || 'petugas',
+            reported_by_name: it.userName || auth.currentUser?.displayName || 'Petugas',
             created_at: it.inspectedAt || new Date().toISOString(),
             photo_url: bad.photo_url || (photoUrls.length > 0 ? photoUrls[0] : null),
             photos: findingPhotos,

@@ -247,6 +247,7 @@ export default function InspectionWizard({
       const queuedItem = {
         id: inspectionId,
         userId: bundle.user.id,
+        userName: bundle.user.name,
         hydrantId: matchedHydrant.id,
         hydrantLabel: `${matchedHydrant.number} - ${matchedHydrant.location_name}`,
         qrCode: scannedText,

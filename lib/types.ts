@@ -37,6 +37,7 @@ export interface PetugasBundle {
 export interface QueuedInspection {
   id: string;
   userId: string;
+  userName?: string;
   hydrantId: string;
   hydrantLabel: string;
   qrCode: string;
