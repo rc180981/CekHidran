@@ -533,16 +533,11 @@ export default function EksporLaporanPage() {
 
     try {
       // Ukuran Standar Label Stiker K3: 10 x 15 cm (100 mm x 150 mm Portrait)
+      // Format Monokrom Khusus Printer Label Stiker / Thermal Roll
       const doc = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
         format: [100, 150],
-      });
-
-      const printDate = new Date().toLocaleDateString('id-ID', {
-        day: '2-digit',
-        month: 'long',
-        year: 'numeric',
       });
 
       for (let i = 0; i < targetList.length; i++) {
@@ -552,185 +547,145 @@ export default function EksporLaporanPage() {
 
         const hydrant = targetList[i];
 
-        // 1. Frame / Border Luar Keselamatan K3
-        doc.setDrawColor(220, 38, 38); // Merah K3
-        doc.setLineWidth(1.0);
-        doc.roundedRect(4, 4, 92, 142, 2.5, 2.5, 'S');
+        // 1. FRAME / BORDER LUAR (Monokrom Tegas)
+        doc.setDrawColor(15, 23, 42); // Dark Charcoal / Hitam
+        doc.setLineWidth(0.8);
+        doc.roundedRect(5, 5, 90, 140, 2, 2, 'S');
 
-        doc.setDrawColor(226, 232, 240); // Garis aksen dalam
-        doc.setLineWidth(0.3);
-        doc.roundedRect(5.5, 5.5, 89, 139, 1.5, 1.5, 'S');
+        doc.setLineWidth(0.2); // Garis aksen dalam
+        doc.roundedRect(6.5, 6.5, 87, 137, 1.5, 1.5, 'S');
 
-        // 2. HEADER K3 & HSE (Merah Solid, Y: 5.5 - 19.5 mm)
-        doc.setFillColor(220, 38, 38);
-        doc.roundedRect(5.5, 5.5, 89, 14, 1.5, 1.5, 'F');
-        doc.rect(5.5, 15, 89, 4.5, 'F'); // Ratakan sudut bawah header
+        // 2. HEADER STIKER (Hitam Solid Kontras, Y: 6.5 - 22 mm)
+        doc.setFillColor(15, 23, 42);
+        doc.roundedRect(6.5, 6.5, 87, 15.5, 1.5, 1.5, 'F');
+        doc.rect(6.5, 18, 87, 4, 'F'); // Ratakan sudut bawah
 
         doc.setTextColor(255, 255, 255);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(7.2);
-        doc.text('DEPARTEMEN K3 & HSE - SISTEM TANGGAP DARURAT', 50, 10, { align: 'center' });
+        doc.setFontSize(12);
+        doc.text('STIKER IDENTIFIKASI HYDRANT', 50, 13.5, { align: 'center' });
 
-        doc.setFontSize(10.5);
-        doc.text('STIKER IDENTIFIKASI HYDRANT', 50, 15, { align: 'center' });
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.text('INSPEKSI RUTIN PERALATAN PEMADAM KEBAKARAN', 50, 18.5, { align: 'center' });
+
+        // 3. CARD IDENTITAS BOX HYDRANT & GUDANG (Y: 25 - 55 mm)
+        doc.setFillColor(248, 250, 252);
+        doc.setDrawColor(15, 23, 42);
+        doc.setLineWidth(0.4);
+        doc.roundedRect(8, 25, 84, 28, 1.5, 1.5, 'FD');
+
+        // Kotak Nomor Hydrant Besar (Kiri)
+        doc.setFillColor(255, 255, 255);
+        doc.setDrawColor(15, 23, 42);
+        doc.setLineWidth(0.5);
+        doc.roundedRect(10, 27, 30, 24, 1, 1, 'FD');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6.5);
+        doc.setTextColor(71, 85, 105);
+        doc.text('NO. HYDRANT', 25, 32, { align: 'center' });
+
+        doc.setFontSize(22);
+        doc.setTextColor(0, 0, 0);
+        doc.text(hydrant.number || '-', 25, 42, { align: 'center' });
 
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(5.5);
-        doc.text('INSPEKSI RUTIN PERALATAN PEMADAM KEBAKARAN', 50, 18.2, { align: 'center' });
-
-        // 3. CARD IDENTITAS BOX HYDRANT & GUDANG (Y: 21.5 - 44 mm)
-        doc.setFillColor(248, 250, 252);
-        doc.setDrawColor(203, 213, 225);
-        doc.setLineWidth(0.3);
-        doc.roundedRect(6.5, 21.5, 87, 22.5, 1.5, 1.5, 'FD');
-
-        // Kotak Nomor Hydrant (Kiri)
-        doc.setFillColor(255, 255, 255);
-        doc.setDrawColor(220, 38, 38);
-        doc.setLineWidth(0.4);
-        doc.roundedRect(8, 23, 28, 19.5, 1, 1, 'FD');
-
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(6.2);
         doc.setTextColor(100, 116, 139);
-        doc.text('NO. HYDRANT', 22, 27, { align: 'center' });
+        doc.text('UNIT BOX', 25, 47, { align: 'center' });
 
-        doc.setFontSize(17);
-        doc.setTextColor(220, 38, 38);
-        doc.text(hydrant.number || '-', 22, 35, { align: 'center' });
-
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(5.2);
-        doc.setTextColor(148, 163, 184);
-        doc.text('UNIT BOX', 22, 40, { align: 'center' });
-
-        // Badge Gudang & Lokasi (Kanan)
-        doc.setFillColor(15, 23, 42); // Navy Dark
-        doc.roundedRect(38, 23, 53.5, 5.8, 1, 1, 'F');
+        // Badge Gudang & Tipe (Kanan)
+        doc.setFillColor(15, 23, 42);
+        doc.roundedRect(43, 27, 47, 6.5, 1, 1, 'F');
 
         doc.setTextColor(255, 255, 255);
-        doc.setFontSize(7.2);
+        doc.setFontSize(7.5);
         doc.setFont('helvetica', 'bold');
         const locTypeStr = (hydrant.location_type || 'INDOOR').toUpperCase();
         doc.text(
           `GUDANG ${hydrant.warehouse_name || '-'} [${locTypeStr}]`,
-          64.75,
-          27,
+          66.5,
+          31.5,
           { align: 'center' }
         );
 
         // Keterangan Tipe
-        doc.setTextColor(30, 41, 59);
-        doc.setFontSize(6.5);
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(7);
         doc.setFont('helvetica', 'bold');
-        doc.text(`Tipe: ${hydrant.type || 'Box Hydrant'}`, 38.5, 33);
+        doc.text(`Tipe Unit: ${hydrant.type || 'Box Hydrant'}`, 43, 37.5);
 
         // Keterangan Lokasi Spesifik
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(6);
-        doc.setTextColor(100, 116, 139);
-        doc.text('Lokasi:', 38.5, 37.5);
+        doc.setFontSize(6.5);
+        doc.setTextColor(71, 85, 105);
+        doc.text('Lokasi:', 43, 42);
 
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(6.2);
-        doc.setTextColor(51, 65, 85);
-        const locLines = doc.splitTextToSize(hydrant.location_name || '-', 46);
-        doc.text(locLines, 46.5, 37.5);
+        doc.setFontSize(6.8);
+        doc.setTextColor(0, 0, 0);
+        const locLines = doc.splitTextToSize(hydrant.location_name || '-', 42);
+        doc.text(locLines, 43, 46);
 
-        // 4. AREA QR CODE HI-RES (Y: 46 - 98 mm)
+        // 4. AREA QR CODE HI-RES (Y: 57 - 118 mm, Tengah & Lapang)
         doc.setFillColor(255, 255, 255);
-        doc.setDrawColor(226, 232, 240);
+        doc.setDrawColor(203, 213, 225);
         doc.setLineWidth(0.4);
-        doc.roundedRect(10, 46, 80, 52, 2, 2, 'FD');
+        doc.roundedRect(12, 57, 76, 59, 2, 2, 'FD');
 
-        // Generate QR Code Data URL (Resolusi Tinggi Error Correction H)
+        // Generate QR Code Resolusi Tinggi (Level H)
         const qrContent = hydrant.qr_code || hydrant.number || `HYDRANT-${hydrant.id}`;
         const qrDataUrl = await QRCode.toDataURL(qrContent, {
           width: 500,
           margin: 1,
           color: {
-            dark: '#0F172A',
+            dark: '#000000',
             light: '#FFFFFF',
           },
           errorCorrectionLevel: 'H',
         });
 
-        // Gambar QR Code (Ukuran 38 x 38 mm tepat di tengah)
-        doc.addImage(qrDataUrl, 'PNG', 31, 48, 38, 38);
+        // Gambar QR Code (Ukuran 46 x 46 mm tepat di tengah)
+        doc.addImage(qrDataUrl, 'PNG', 27, 59.5, 46, 46);
 
         // Teks Kode QR di bawah gambar
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8.5);
-        doc.setTextColor(15, 23, 42);
-        doc.text(qrContent, 50, 91, { align: 'center' });
+        doc.setFontSize(9.5);
+        doc.setTextColor(0, 0, 0);
+        doc.text(qrContent, 50, 110, { align: 'center' });
 
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(6);
-        doc.setTextColor(100, 116, 139);
-        doc.text('Pindai via Aplikasi Cek Hidran saat melakukan inspeksi berkala', 50, 95, { align: 'center' });
+        doc.setFontSize(6.2);
+        doc.setTextColor(71, 85, 105);
+        doc.text('Pindai QR ini via Aplikasi Cek Hidran saat melakukan inspeksi berkala', 50, 114, { align: 'center' });
 
-        // 5. STANDAR CHECKLIST KELENGKAPAN BOX K3 (Y: 100 - 124 mm)
-        doc.setFillColor(248, 250, 252);
-        doc.setDrawColor(203, 213, 225);
-        doc.setLineWidth(0.3);
-        doc.roundedRect(6.5, 100, 87, 24, 1.5, 1.5, 'FD');
+        // 5. BANNER PERINGATAN KESELAMATAN K3 (Y: 120 - 141 mm)
+        doc.setFillColor(255, 255, 255);
+        doc.setDrawColor(15, 23, 42);
+        doc.setLineWidth(0.8);
+        doc.roundedRect(8, 120, 84, 21, 1.5, 1.5, 'FD');
 
-        // Header strip checklist
-        doc.setFillColor(226, 232, 240);
-        doc.rect(6.5, 100, 87, 4.8, 'F');
+        // Header Strip Peringatan
+        doc.setFillColor(15, 23, 42);
+        doc.roundedRect(8, 120, 84, 6, 1.5, 1.5, 'F');
+        doc.rect(8, 124, 84, 2, 'F'); // Ratakan sudut bawah
 
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(6.5);
-        doc.setTextColor(30, 41, 59);
-        doc.text('STANDAR KELENGKAPAN BOX HYDRANT (K3)', 50, 103.5, { align: 'center' });
-
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(5.8);
-        doc.setTextColor(51, 65, 85);
-
-        // Kolom Kiri
-        doc.text('[ OK ]  1. Pintu, Kaca & Kunci Box', 9.5, 109.5);
-        doc.text('[ OK ]  2. Nozzle & Packing Seal', 9.5, 114.5);
-        doc.text('[ OK ]  3. Selang / Hose Pemadam', 9.5, 119.5);
-
-        // Kolom Kanan
-        doc.text('[ OK ]  4. Keran / Valve Utama', 52.5, 109.5);
-        doc.text('[ OK ]  5. Tekanan Air Standar', 52.5, 114.5);
-        doc.text('[ OK ]  6. Bebas Halangan 1 Meter', 52.5, 119.5);
-
-        doc.setFont('helvetica', 'italic');
-        doc.setFontSize(5);
-        doc.setTextColor(100, 116, 139);
-        doc.text('*Laporkan ke Petugas K3 jika ada komponen hilang / rusak', 50, 122.8, { align: 'center' });
-
-        // 6. FOOTER BANNER PERINGATAN KESELAMATAN K3 (Y: 126 - 139.5 mm)
-        doc.setFillColor(153, 27, 27); // Dark Red K3
-        doc.roundedRect(6.5, 126, 87, 13.5, 1.5, 1.5, 'F');
-
+        doc.setTextColor(255, 255, 255);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(7.5);
-        doc.setTextColor(254, 240, 138); // Yellow Alert
-        doc.text('! PERINGATAN KESELAMATAN K3 !', 50, 130, { align: 'center' });
+        doc.text('! PERINGATAN KESELAMATAN K3 !', 50, 124.5, { align: 'center' });
 
-        doc.setFontSize(6.8);
-        doc.setTextColor(255, 255, 255);
-        doc.text('DILARANG MENGHALANGI AKSES BOX HYDRANT!', 50, 134, { align: 'center' });
+        // Isi Teks Peringatan Monokrom
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.text('DILARANG MENGHALANGI AKSES BOX HYDRANT!', 50, 131, { align: 'center' });
 
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(5.2);
-        doc.setTextColor(241, 245, 249);
-        doc.text('Wajib menjaga radius bebas hambatan min. 1 meter di depan box.', 50, 137.5, { align: 'center' });
-
-        // 7. FOOTER INFORMASI CETAK & IDENTITAS SISTEM (Y: 142.5 mm)
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(5);
-        doc.setTextColor(148, 163, 184);
-        doc.text(
-          `Label 10 x 15 cm | Cek Hidran Digital K3 | Dicetak: ${printDate}`,
-          50,
-          142.5,
-          { align: 'center' }
-        );
+        doc.setFontSize(6.5);
+        doc.setTextColor(51, 65, 85);
+        doc.text('Wajib menjaga radius bebas hambatan min. 1 meter di depan box.', 50, 136.5, { align: 'center' });
       }
 
       const fileName =
@@ -934,22 +889,22 @@ export default function EksporLaporanPage() {
               </select>
             </div>
 
-            <div className="space-y-1.5 bg-amber-50/70 p-2.5 rounded-lg border border-amber-200/80 text-[11px] text-amber-900 leading-relaxed">
-              <div className="font-bold flex items-center gap-1.5 text-amber-800">
-                <Tag size={13} className="shrink-0" /> Standar Label Stiker K3 (10 x 15 cm):
+            <div className="space-y-1.5 bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-[11px] text-slate-700 leading-relaxed">
+              <div className="font-bold flex items-center gap-1.5 text-slate-900">
+                <Tag size={13} className="shrink-0 text-slate-700" /> Format Monokrom Khusus Printer Label (10 x 15 cm):
               </div>
-              <ul className="list-disc list-inside space-y-0.5 text-amber-950/80">
-                <li>Ukuran presisi label stiker: 100 x 150 mm (Thermal / Glossy).</li>
-                <li>Identitas resmi K3, No. Box besar, nama gudang & lokasi.</li>
-                <li>QR Code resolusi tinggi (Error Correction H) + Teks Kode.</li>
-                <li>Panduan 6 acuan kelengkapan box & banner peringatan K3.</li>
+              <ul className="list-disc list-inside space-y-0.5 text-slate-600">
+                <li>Ukuran presisi label stiker: 100 x 150 mm (Thermal / Barcode Printer).</li>
+                <li>Format monokrom hitam-putih kontras tinggi, anti luntur dan hemat pita/thermal head.</li>
+                <li>QR Code ekstra besar & tajam (Error Correction H) agar mudah dipindai.</li>
+                <li>Identitas No. Box, Gudang, Lokasi, dan banner peringatan K3.</li>
               </ul>
             </div>
 
             <button
               type="submit"
               disabled={generatingStickers}
-              className="w-full min-h-[42px] text-xs font-bold rounded-xl text-white bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-700 hover:to-rose-800 shadow-md shadow-red-500/20 transition-all flex items-center justify-center gap-2"
+              className="w-full min-h-[42px] text-xs font-bold rounded-xl text-white bg-slate-900 hover:bg-slate-800 shadow-md shadow-slate-900/10 transition-all flex items-center justify-center gap-2"
             >
               {generatingStickers ? (
                 <>
