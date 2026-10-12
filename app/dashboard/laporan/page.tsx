@@ -552,76 +552,98 @@ export default function EksporLaporanPage() {
 
         const hydrant = targetList[i];
 
-        // 1. Border Ganda K3 Keselamatan
+        // 1. Frame / Border Luar Keselamatan K3
         doc.setDrawColor(220, 38, 38); // Merah K3
-        doc.setLineWidth(1.2);
-        doc.roundedRect(3.5, 3.5, 93, 143, 3, 3, 'S');
+        doc.setLineWidth(1.0);
+        doc.roundedRect(4, 4, 92, 142, 2.5, 2.5, 'S');
 
-        doc.setDrawColor(226, 232, 240); // Inner line aksen
+        doc.setDrawColor(226, 232, 240); // Garis aksen dalam
         doc.setLineWidth(0.3);
-        doc.roundedRect(5, 5, 90, 140, 2, 2, 'S');
+        doc.roundedRect(5.5, 5.5, 89, 139, 1.5, 1.5, 'S');
 
-        // 2. Header K3 & HSE (Merah Solid)
+        // 2. HEADER K3 & HSE (Merah Solid, Y: 5.5 - 19.5 mm)
         doc.setFillColor(220, 38, 38);
-        doc.roundedRect(5, 5, 90, 17, 2, 2, 'F');
-        doc.rect(5, 17, 90, 4, 'F'); // Ratakan sudut bawah header
+        doc.roundedRect(5.5, 5.5, 89, 14, 1.5, 1.5, 'F');
+        doc.rect(5.5, 15, 89, 4.5, 'F'); // Ratakan sudut bawah header
 
         doc.setTextColor(255, 255, 255);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(7.5);
-        doc.text('DEPARTEMEN K3 & HSE \u2022 FIRE PROTECTION', 50, 10, { align: 'center' });
+        doc.setFontSize(7.2);
+        doc.text('DEPARTEMEN K3 & HSE - SISTEM TANGGAP DARURAT', 50, 10, { align: 'center' });
 
         doc.setFontSize(10.5);
-        doc.text('STIKER RESMI BOX HYDRANT', 50, 15.5, { align: 'center' });
+        doc.text('STIKER IDENTIFIKASI HYDRANT', 50, 15, { align: 'center' });
 
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(6);
-        doc.text('SISTEM TANGGAP DARURAT & PEMERIKSAAN BERKALA', 50, 19.5, { align: 'center' });
+        doc.setFontSize(5.5);
+        doc.text('INSPEKSI RUTIN PERALATAN PEMADAM KEBAKARAN', 50, 18.2, { align: 'center' });
 
-        // 3. Card Identitas Box & Gudang
+        // 3. CARD IDENTITAS BOX HYDRANT & GUDANG (Y: 21.5 - 44 mm)
         doc.setFillColor(248, 250, 252);
         doc.setDrawColor(203, 213, 225);
         doc.setLineWidth(0.3);
-        doc.roundedRect(7, 24, 86, 23, 2, 2, 'FD');
+        doc.roundedRect(6.5, 21.5, 87, 22.5, 1.5, 1.5, 'FD');
 
-        // Nomor Box Hydrant Besar
+        // Kotak Nomor Hydrant (Kiri)
+        doc.setFillColor(255, 255, 255);
+        doc.setDrawColor(220, 38, 38);
+        doc.setLineWidth(0.4);
+        doc.roundedRect(8, 23, 28, 19.5, 1, 1, 'FD');
+
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(6.5);
+        doc.setFontSize(6.2);
         doc.setTextColor(100, 116, 139);
-        doc.text('NO. HYDRANT', 10, 28.5);
+        doc.text('NO. HYDRANT', 22, 27, { align: 'center' });
 
-        doc.setFontSize(22);
+        doc.setFontSize(17);
         doc.setTextColor(220, 38, 38);
-        doc.text(hydrant.number || '-', 10, 37.5);
+        doc.text(hydrant.number || '-', 22, 35, { align: 'center' });
 
-        // Badge Gudang & Tipe
-        doc.setFillColor(15, 23, 42);
-        doc.roundedRect(42, 26, 48, 6, 1, 1, 'F');
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(5.2);
+        doc.setTextColor(148, 163, 184);
+        doc.text('UNIT BOX', 22, 40, { align: 'center' });
+
+        // Badge Gudang & Lokasi (Kanan)
+        doc.setFillColor(15, 23, 42); // Navy Dark
+        doc.roundedRect(38, 23, 53.5, 5.8, 1, 1, 'F');
 
         doc.setTextColor(255, 255, 255);
-        doc.setFontSize(7.5);
+        doc.setFontSize(7.2);
         doc.setFont('helvetica', 'bold');
+        const locTypeStr = (hydrant.location_type || 'INDOOR').toUpperCase();
         doc.text(
-          `GUDANG ${hydrant.warehouse_name || '-'} [${(hydrant.location_type || 'INDOOR').toUpperCase()}]`,
-          66,
-          30.2,
+          `GUDANG ${hydrant.warehouse_name || '-'} [${locTypeStr}]`,
+          64.75,
+          27,
           { align: 'center' }
         );
 
-        // Lokasi Spesifik
-        doc.setTextColor(51, 65, 85);
-        doc.setFontSize(6.8);
-        doc.setFont('helvetica', 'normal');
-        const locLines = doc.splitTextToSize(`Lokasi: ${hydrant.location_name || '-'}`, 48);
-        doc.text(locLines, 42, 36);
+        // Keterangan Tipe
+        doc.setTextColor(30, 41, 59);
+        doc.setFontSize(6.5);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Tipe: ${hydrant.type || 'Box Hydrant'}`, 38.5, 33);
 
-        // 4. Area QR Code Hi-Res
+        // Keterangan Lokasi Spesifik
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6);
+        doc.setTextColor(100, 116, 139);
+        doc.text('Lokasi:', 38.5, 37.5);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.2);
+        doc.setTextColor(51, 65, 85);
+        const locLines = doc.splitTextToSize(hydrant.location_name || '-', 46);
+        doc.text(locLines, 46.5, 37.5);
+
+        // 4. AREA QR CODE HI-RES (Y: 46 - 98 mm)
         doc.setFillColor(255, 255, 255);
         doc.setDrawColor(226, 232, 240);
         doc.setLineWidth(0.4);
-        doc.roundedRect(12, 49, 76, 56, 2, 2, 'FD');
+        doc.roundedRect(10, 46, 80, 52, 2, 2, 'FD');
 
-        // Generate QR Code Data URL
+        // Generate QR Code Data URL (Resolusi Tinggi Error Correction H)
         const qrContent = hydrant.qr_code || hydrant.number || `HYDRANT-${hydrant.id}`;
         const qrDataUrl = await QRCode.toDataURL(qrContent, {
           width: 500,
@@ -633,67 +655,82 @@ export default function EksporLaporanPage() {
           errorCorrectionLevel: 'H',
         });
 
-        // Gambar QR Code (Ukuran 42 x 42 mm di tengah)
-        doc.addImage(qrDataUrl, 'PNG', 29, 51.5, 42, 42);
+        // Gambar QR Code (Ukuran 38 x 38 mm tepat di tengah)
+        doc.addImage(qrDataUrl, 'PNG', 31, 48, 38, 38);
 
-        // Teks Kode QR
+        // Teks Kode QR di bawah gambar
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(8.5);
         doc.setTextColor(15, 23, 42);
-        doc.text(qrContent, 50, 97, { align: 'center' });
+        doc.text(qrContent, 50, 91, { align: 'center' });
 
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(6);
         doc.setTextColor(100, 116, 139);
-        doc.text('Pindai via Aplikasi Cek Hidran saat melakukan inspeksi berkala', 50, 101, { align: 'center' });
+        doc.text('Pindai via Aplikasi Cek Hidran saat melakukan inspeksi berkala', 50, 95, { align: 'center' });
 
-        // 5. Checklist Acuan Standar Kelengkapan Box K3
-        doc.setFillColor(241, 245, 249);
+        // 5. STANDAR CHECKLIST KELENGKAPAN BOX K3 (Y: 100 - 124 mm)
+        doc.setFillColor(248, 250, 252);
         doc.setDrawColor(203, 213, 225);
         doc.setLineWidth(0.3);
-        doc.roundedRect(7, 107, 86, 20.5, 1.5, 1.5, 'FD');
+        doc.roundedRect(6.5, 100, 87, 24, 1.5, 1.5, 'FD');
+
+        // Header strip checklist
+        doc.setFillColor(226, 232, 240);
+        doc.rect(6.5, 100, 87, 4.8, 'F');
 
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(6.8);
+        doc.setFontSize(6.5);
         doc.setTextColor(30, 41, 59);
-        doc.text('STANDAR KELENGKAPAN BOX HYDRANT (K3):', 10, 111.5);
+        doc.text('STANDAR KELENGKAPAN BOX HYDRANT (K3)', 50, 103.5, { align: 'center' });
 
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(6);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(5.8);
         doc.setTextColor(51, 65, 85);
 
         // Kolom Kiri
-        doc.text('[✓] 1. Pintu Box, Kaca & Kunci Utuh', 10, 116);
-        doc.text('[✓] 2. Nozzle & Packing Seal Lengkap', 10, 120.5);
-        doc.text('[✓] 3. Selang / Hose Tergulung Rapi', 10, 125);
+        doc.text('[ OK ]  1. Pintu, Kaca & Kunci Box', 9.5, 109.5);
+        doc.text('[ OK ]  2. Nozzle & Packing Seal', 9.5, 114.5);
+        doc.text('[ OK ]  3. Selang / Hose Pemadam', 9.5, 119.5);
 
         // Kolom Kanan
-        doc.text('[✓] 4. Keran / Valve Tidak Bocor', 52, 116);
-        doc.text('[✓] 5. Tekanan Air Sesuai Standar', 52, 120.5);
-        doc.text('[✓] 6. Bebas Hambatan Min 1 Meter', 52, 125);
+        doc.text('[ OK ]  4. Keran / Valve Utama', 52.5, 109.5);
+        doc.text('[ OK ]  5. Tekanan Air Standar', 52.5, 114.5);
+        doc.text('[ OK ]  6. Bebas Halangan 1 Meter', 52.5, 119.5);
 
-        // 6. Footer Banner Peringatan K3
-        doc.setFillColor(153, 27, 27); // Dark Red
-        doc.roundedRect(7, 129.5, 86, 13, 1.5, 1.5, 'F');
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(5);
+        doc.setTextColor(100, 116, 139);
+        doc.text('*Laporkan ke Petugas K3 jika ada komponen hilang / rusak', 50, 122.8, { align: 'center' });
+
+        // 6. FOOTER BANNER PERINGATAN KESELAMATAN K3 (Y: 126 - 139.5 mm)
+        doc.setFillColor(153, 27, 27); // Dark Red K3
+        doc.roundedRect(6.5, 126, 87, 13.5, 1.5, 1.5, 'F');
 
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(7.5);
-        doc.setTextColor(254, 240, 138); // Yellow alert
-        doc.text('\u26A0 PERINGATAN KESELAMATAN K3 \u26A0', 50, 134, { align: 'center' });
+        doc.setTextColor(254, 240, 138); // Yellow Alert
+        doc.text('! PERINGATAN KESELAMATAN K3 !', 50, 130, { align: 'center' });
 
-        doc.setFontSize(6.5);
+        doc.setFontSize(6.8);
         doc.setTextColor(255, 255, 255);
-        doc.text('DILARANG MENGHALANGI AKSES BOX HYDRANT!', 50, 138, { align: 'center' });
+        doc.text('DILARANG MENGHALANGI AKSES BOX HYDRANT!', 50, 134, { align: 'center' });
 
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(5.5);
-        doc.text('Wajib menjaga radius bebas hambatan min. 1 meter di depan box.', 50, 141, { align: 'center' });
+        doc.setFontSize(5.2);
+        doc.setTextColor(241, 245, 249);
+        doc.text('Wajib menjaga radius bebas hambatan min. 1 meter di depan box.', 50, 137.5, { align: 'center' });
 
-        // 7. Catatan Cetak Luar Border
+        // 7. FOOTER INFORMASI CETAK & IDENTITAS SISTEM (Y: 142.5 mm)
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(5);
         doc.setTextColor(148, 163, 184);
-        doc.text(`Format Label 10 x 15 cm \u2022 Sistem K3 Cek Hidran \u2022 Cetak: ${printDate}`, 50, 148, { align: 'center' });
+        doc.text(
+          `Label 10 x 15 cm | Cek Hidran Digital K3 | Dicetak: ${printDate}`,
+          50,
+          142.5,
+          { align: 'center' }
+        );
       }
 
       const fileName =
