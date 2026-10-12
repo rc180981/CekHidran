@@ -5,10 +5,11 @@ import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase/client';
 import { Card } from '@/components/ui';
 import { jakartaMonth, monthRange, monthLabel } from '@/lib/period';
-import { FileText, FileSpreadsheet, Download, Loader2, Building2, CheckCircle2 } from 'lucide-react';
+import { FileText, FileSpreadsheet, Download, Loader2, Building2, CheckCircle2, QrCode, Tag, Printer } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import ExcelJS from 'exceljs';
+import QRCode from 'qrcode';
 
 export default function EksporLaporanPage() {
   const [warehouses, setWarehouses] = useState<any[]>([]);
@@ -17,16 +18,21 @@ export default function EksporLaporanPage() {
   const [inspections, setInspections] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
 
-  // Form State PDF
+  // Form State PDF Checksheet
   const [pdfWarehouseFilter, setPdfWarehouseFilter] = useState<string>('all');
   const [pdfHydrantId, setPdfHydrantId] = useState<string>('');
   const [pdfBulan, setPdfBulan] = useState<string>(jakartaMonth());
   const [generatingPdf, setGeneratingPdf] = useState(false);
 
-  // Form State Excel
+  // Form State Excel Rekapitulasi
   const [excelWarehouseId, setExcelWarehouseId] = useState<string>('all');
   const [excelBulan, setExcelBulan] = useState<string>(jakartaMonth());
   const [generatingExcel, setGeneratingExcel] = useState(false);
+
+  // Form State Stiker QR Code Box Hydrant (Label 10 x 15 cm)
+  const [stickerWarehouseFilter, setStickerWarehouseFilter] = useState<string>('all');
+  const [stickerHydrantId, setStickerHydrantId] = useState<string>('all');
+  const [generatingStickers, setGeneratingStickers] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -80,11 +86,26 @@ export default function EksporLaporanPage() {
       ? hydrants
       : hydrants.filter((h) => h.warehouse_id === pdfWarehouseFilter);
 
+  const filteredStickerHydrants =
+    stickerWarehouseFilter === 'all'
+      ? hydrants
+      : hydrants.filter((h) => h.warehouse_id === stickerWarehouseFilter);
+
   useEffect(() => {
     if (filteredPdfHydrants.length > 0 && !filteredPdfHydrants.some((h) => h.id === pdfHydrantId)) {
       setPdfHydrantId(filteredPdfHydrants[0].id);
     }
   }, [pdfWarehouseFilter, filteredPdfHydrants, pdfHydrantId]);
+
+  useEffect(() => {
+    if (
+      stickerHydrantId !== 'all' &&
+      filteredStickerHydrants.length > 0 &&
+      !filteredStickerHydrants.some((h) => h.id === stickerHydrantId)
+    ) {
+      setStickerHydrantId('all');
+    }
+  }, [stickerWarehouseFilter, filteredStickerHydrants, stickerHydrantId]);
 
   // ================= EXPORT PDF =================
   const handleExportPdf = async (e: React.FormEvent) => {
@@ -493,6 +514,203 @@ export default function EksporLaporanPage() {
     }
   };
 
+  // ================= EXPORT STIKER QR CODE BOX HYDRANT (10 x 15 CM) =================
+  const handleExportStickersPdf = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const targetList =
+      stickerHydrantId === 'all'
+        ? filteredStickerHydrants
+        : filteredStickerHydrants.filter((h) => h.id === stickerHydrantId);
+
+    if (targetList.length === 0) {
+      alert('Tidak ada titik hydrant yang dipilih untuk dicetak.');
+      return;
+    }
+
+    setGeneratingStickers(true);
+    setSuccessMsg(null);
+
+    try {
+      // Ukuran Standar Label Stiker K3: 10 x 15 cm (100 mm x 150 mm Portrait)
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: [100, 150],
+      });
+
+      const printDate = new Date().toLocaleDateString('id-ID', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+      });
+
+      for (let i = 0; i < targetList.length; i++) {
+        if (i > 0) {
+          doc.addPage([100, 150], 'portrait');
+        }
+
+        const hydrant = targetList[i];
+
+        // 1. Border Ganda K3 Keselamatan
+        doc.setDrawColor(220, 38, 38); // Merah K3
+        doc.setLineWidth(1.2);
+        doc.roundedRect(3.5, 3.5, 93, 143, 3, 3, 'S');
+
+        doc.setDrawColor(226, 232, 240); // Inner line aksen
+        doc.setLineWidth(0.3);
+        doc.roundedRect(5, 5, 90, 140, 2, 2, 'S');
+
+        // 2. Header K3 & HSE (Merah Solid)
+        doc.setFillColor(220, 38, 38);
+        doc.roundedRect(5, 5, 90, 17, 2, 2, 'F');
+        doc.rect(5, 17, 90, 4, 'F'); // Ratakan sudut bawah header
+
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.text('DEPARTEMEN K3 & HSE \u2022 FIRE PROTECTION', 50, 10, { align: 'center' });
+
+        doc.setFontSize(10.5);
+        doc.text('STIKER RESMI BOX HYDRANT', 50, 15.5, { align: 'center' });
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6);
+        doc.text('SISTEM TANGGAP DARURAT & PEMERIKSAAN BERKALA', 50, 19.5, { align: 'center' });
+
+        // 3. Card Identitas Box & Gudang
+        doc.setFillColor(248, 250, 252);
+        doc.setDrawColor(203, 213, 225);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(7, 24, 86, 23, 2, 2, 'FD');
+
+        // Nomor Box Hydrant Besar
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6.5);
+        doc.setTextColor(100, 116, 139);
+        doc.text('NO. HYDRANT', 10, 28.5);
+
+        doc.setFontSize(22);
+        doc.setTextColor(220, 38, 38);
+        doc.text(hydrant.number || '-', 10, 37.5);
+
+        // Badge Gudang & Tipe
+        doc.setFillColor(15, 23, 42);
+        doc.roundedRect(42, 26, 48, 6, 1, 1, 'F');
+
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(7.5);
+        doc.setFont('helvetica', 'bold');
+        doc.text(
+          `GUDANG ${hydrant.warehouse_name || '-'} [${(hydrant.location_type || 'INDOOR').toUpperCase()}]`,
+          66,
+          30.2,
+          { align: 'center' }
+        );
+
+        // Lokasi Spesifik
+        doc.setTextColor(51, 65, 85);
+        doc.setFontSize(6.8);
+        doc.setFont('helvetica', 'normal');
+        const locLines = doc.splitTextToSize(`Lokasi: ${hydrant.location_name || '-'}`, 48);
+        doc.text(locLines, 42, 36);
+
+        // 4. Area QR Code Hi-Res
+        doc.setFillColor(255, 255, 255);
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.4);
+        doc.roundedRect(12, 49, 76, 56, 2, 2, 'FD');
+
+        // Generate QR Code Data URL
+        const qrContent = hydrant.qr_code || hydrant.number || `HYDRANT-${hydrant.id}`;
+        const qrDataUrl = await QRCode.toDataURL(qrContent, {
+          width: 500,
+          margin: 1,
+          color: {
+            dark: '#0F172A',
+            light: '#FFFFFF',
+          },
+          errorCorrectionLevel: 'H',
+        });
+
+        // Gambar QR Code (Ukuran 42 x 42 mm di tengah)
+        doc.addImage(qrDataUrl, 'PNG', 29, 51.5, 42, 42);
+
+        // Teks Kode QR
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(15, 23, 42);
+        doc.text(qrContent, 50, 97, { align: 'center' });
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6);
+        doc.setTextColor(100, 116, 139);
+        doc.text('Pindai via Aplikasi Cek Hidran saat melakukan inspeksi berkala', 50, 101, { align: 'center' });
+
+        // 5. Checklist Acuan Standar Kelengkapan Box K3
+        doc.setFillColor(241, 245, 249);
+        doc.setDrawColor(203, 213, 225);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(7, 107, 86, 20.5, 1.5, 1.5, 'FD');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6.8);
+        doc.setTextColor(30, 41, 59);
+        doc.text('STANDAR KELENGKAPAN BOX HYDRANT (K3):', 10, 111.5);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6);
+        doc.setTextColor(51, 65, 85);
+
+        // Kolom Kiri
+        doc.text('[✓] 1. Pintu Box, Kaca & Kunci Utuh', 10, 116);
+        doc.text('[✓] 2. Nozzle & Packing Seal Lengkap', 10, 120.5);
+        doc.text('[✓] 3. Selang / Hose Tergulung Rapi', 10, 125);
+
+        // Kolom Kanan
+        doc.text('[✓] 4. Keran / Valve Tidak Bocor', 52, 116);
+        doc.text('[✓] 5. Tekanan Air Sesuai Standar', 52, 120.5);
+        doc.text('[✓] 6. Bebas Hambatan Min 1 Meter', 52, 125);
+
+        // 6. Footer Banner Peringatan K3
+        doc.setFillColor(153, 27, 27); // Dark Red
+        doc.roundedRect(7, 129.5, 86, 13, 1.5, 1.5, 'F');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.setTextColor(254, 240, 138); // Yellow alert
+        doc.text('\u26A0 PERINGATAN KESELAMATAN K3 \u26A0', 50, 134, { align: 'center' });
+
+        doc.setFontSize(6.5);
+        doc.setTextColor(255, 255, 255);
+        doc.text('DILARANG MENGHALANGI AKSES BOX HYDRANT!', 50, 138, { align: 'center' });
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(5.5);
+        doc.text('Wajib menjaga radius bebas hambatan min. 1 meter di depan box.', 50, 141, { align: 'center' });
+
+        // 7. Catatan Cetak Luar Border
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(5);
+        doc.setTextColor(148, 163, 184);
+        doc.text(`Format Label 10 x 15 cm \u2022 Sistem K3 Cek Hidran \u2022 Cetak: ${printDate}`, 50, 148, { align: 'center' });
+      }
+
+      const fileName =
+        targetList.length === 1
+          ? `Stiker-QR-Hydrant-${targetList[0].number || 'Box'}-10x15cm.pdf`
+          : `Stiker-QR-Hydrant-Keseluruhan-${stickerWarehouseFilter}-${targetList.length}Titik-10x15cm.pdf`;
+
+      doc.save(fileName);
+      setSuccessMsg(`Stiker QR Code (${targetList.length} titik) ukuran 10 x 15 cm berhasil diunduh!`);
+    } catch (err: any) {
+      console.error(err);
+      alert('Gagal membuat stiker QR Code: ' + (err?.message || 'Error'));
+    } finally {
+      setGeneratingStickers(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="py-24 text-center space-y-3">
@@ -508,7 +726,7 @@ export default function EksporLaporanPage() {
       <div className="pb-2 border-b border-slate-200/80">
         <h1 className="text-2xl font-black tracking-wider text-slate-900 uppercase">EKSPOR LAPORAN CHECKSHEET</h1>
         <p className="text-xs sm:text-sm text-slate-500 mt-1 uppercase font-semibold">
-          UNDUH LAPORAN CHECKSHEET PEMERIKSAAN FORMAT RESMI PDF (FORMAT LEMBAR FISIK) ATAU FORMAT EXCEL UNTUK REKAPITULASI DATA K3
+          UNDUH LAPORAN CHECKSHEET PEMERIKSAAN FORMAT RESMI PDF (FORMAT LEMBAR FISIK), EXCEL REKAPITULASI, SERTA STIKER QR CODE BOX HYDRANT (LABEL 10 X 15 CM)
         </p>
       </div>
 
@@ -519,7 +737,7 @@ export default function EksporLaporanPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* KARTU 1: EKSPOR PDF */}
         <Card title="EKSPOR PDF CHECKSHEET (FORMAT LEMBAR FISIK K3)">
           <form onSubmit={handleExportPdf} className="space-y-4">
@@ -639,6 +857,73 @@ export default function EksporLaporanPage() {
                 )}
               </button>
             </div>
+          </form>
+        </Card>
+
+        {/* KARTU 3: EKSPOR STIKER QR CODE BOX HYDRANT */}
+        <Card title="STIKER QR CODE BOX HYDRANT (LABEL 10 x 15 CM)">
+          <form onSubmit={handleExportStickersPdf} className="space-y-4">
+            <div>
+              <label className="label text-xs font-bold text-slate-700 mb-1 block">Filter Gudang</label>
+              <select
+                value={stickerWarehouseFilter}
+                onChange={(e) => setStickerWarehouseFilter(e.target.value)}
+                className="input text-xs"
+              >
+                <option value="all">Semua Gudang</option>
+                {warehouses.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    Gudang {w.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="label text-xs font-bold text-slate-700 mb-1 block">Pilih Titik Hydrant</label>
+              <select
+                value={stickerHydrantId}
+                onChange={(e) => setStickerHydrantId(e.target.value)}
+                className="input text-xs font-medium"
+              >
+                <option value="all">
+                  🌟 Cetak Keseluruhan ({filteredStickerHydrants.length} Titik)
+                </option>
+                {filteredStickerHydrants.map((h: any) => (
+                  <option key={h.id} value={h.id}>
+                    {h.number} - {h.location_name} (Gudang {h.warehouse_name})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5 bg-amber-50/70 p-2.5 rounded-lg border border-amber-200/80 text-[11px] text-amber-900 leading-relaxed">
+              <div className="font-bold flex items-center gap-1.5 text-amber-800">
+                <Tag size={13} className="shrink-0" /> Standar Label Stiker K3 (10 x 15 cm):
+              </div>
+              <ul className="list-disc list-inside space-y-0.5 text-amber-950/80">
+                <li>Ukuran presisi label stiker: 100 x 150 mm (Thermal / Glossy).</li>
+                <li>Identitas resmi K3, No. Box besar, nama gudang & lokasi.</li>
+                <li>QR Code resolusi tinggi (Error Correction H) + Teks Kode.</li>
+                <li>Panduan 6 acuan kelengkapan box & banner peringatan K3.</li>
+              </ul>
+            </div>
+
+            <button
+              type="submit"
+              disabled={generatingStickers}
+              className="w-full min-h-[42px] text-xs font-bold rounded-xl text-white bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-700 hover:to-rose-800 shadow-md shadow-red-500/20 transition-all flex items-center justify-center gap-2"
+            >
+              {generatingStickers ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" /> Menyiapkan Stiker QR…
+                </>
+              ) : (
+                <>
+                  <Printer size={16} /> Unduh Stiker Label (10 x 15 cm)
+                </>
+              )}
+            </button>
           </form>
         </Card>
       </div>
