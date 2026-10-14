@@ -5,7 +5,6 @@ import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc } from 'firebase
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail } from 'firebase/auth';
 import { db, auth, firebaseConfig } from '@/lib/firebase/client';
-import { Card } from '@/components/ui';
 import { ROLE_LABEL, Role } from '@/lib/rbac';
 import {
   Plus,
@@ -29,6 +28,10 @@ import {
   User,
   Power,
   RotateCcw,
+  Sparkles,
+  ShieldCheck,
+  Briefcase,
+  Wrench,
 } from 'lucide-react';
 
 export default function KelolaPenggunaPage() {
@@ -105,11 +108,25 @@ export default function KelolaPenggunaPage() {
     });
   }, [profiles, searchQuery, roleFilter, statusFilter]);
 
+  // Statistik Ringkasan
+  const stats = useMemo(() => {
+    const total = profiles.length;
+    const petugasCount = profiles.filter((p) => p.role === 'petugas').length;
+    const supervisorAdminCount = profiles.filter(
+      (p) => p.role === 'admin_sistem' || p.role === 'supervisor_k3'
+    ).length;
+    const activeCount = profiles.filter((p) => p.active).length;
+
+    return { total, petugasCount, supervisorAdminCount, activeCount };
+  }, [profiles]);
+
   const handleToggleActive = async (id: string, current: boolean) => {
     try {
       await updateDoc(doc(db, 'profiles', id), { active: !current });
-      setActionNotice(`Status pengguna berhasil diubah menjadi ${!current ? 'Aktif' : 'Nonaktif'}.`);
-      setTimeout(() => setActionNotice(null), 3000);
+      setActionNotice(
+        `Status akun berhasil diubah menjadi ${!current ? 'Aktif' : 'Nonaktif'}.`
+      );
+      setTimeout(() => setActionNotice(null), 3500);
       fetchData();
     } catch (e) {
       console.error(e);
@@ -170,7 +187,7 @@ export default function KelolaPenggunaPage() {
 
     try {
       if (editingUser) {
-        // Mode 1: Edit Data Pengguna yang sudah ada
+        // Mode 1: Edit Data Pengguna
         await updateDoc(doc(db, 'profiles', editingUser.id), {
           name: userForm.name.trim(),
           email: userForm.email.trim(),
@@ -180,36 +197,35 @@ export default function KelolaPenggunaPage() {
           updated_at: new Date().toISOString(),
         });
 
-        setActionNotice(`Data profil "${userForm.name}" berhasil diperbarui.`);
+        setActionNotice(`Data pengguna "${userForm.name}" berhasil diperbarui.`);
         setTimeout(() => setActionNotice(null), 4000);
       } else {
-        // Mode 2: Tambah Pengguna Baru (Wajib buat akun di Firebase Auth & simpan ke Firestore)
+        // Mode 2: Tambah Pengguna Baru
         if (!userForm.password || userForm.password.length < 6) {
-          setFormError('Kata sandi (password) wajib diisi minimal 6 karakter.');
+          setFormError('Kata sandi wajib diisi minimal 6 karakter.');
           setSubmitting(false);
           return;
         }
 
-        // Gunakan instance Secondary Firebase App terisolasi agar sesi Admin tidak ter-logout
+        // Secondary Auth App
         let secondaryApp = getApps().find((a) => a.name === 'SecondaryAuth');
         if (!secondaryApp) {
           secondaryApp = initializeApp(firebaseConfig, 'SecondaryAuth');
         }
         const secondaryAuth = getAuth(secondaryApp);
 
-        // 1. Buat akun kredensial login di Firebase Auth
+        // Buat Akun Auth
         const cred = await createUserWithEmailAndPassword(
           secondaryAuth,
           userForm.email.trim(),
           userForm.password
         );
 
-        // 2. Segera logout instance secondary agar aman
         await signOut(secondaryAuth);
 
         const newUid = cred.user.uid;
 
-        // 3. Simpan dokumen profil ke Firestore dengan ID uid yang sama
+        // Simpan Profil ke Firestore
         await setDoc(doc(db, 'profiles', newUid), {
           id: newUid,
           name: userForm.name.trim(),
@@ -247,7 +263,7 @@ export default function KelolaPenggunaPage() {
     if (confirm(`Yakin ingin menghapus pengguna "${p.name}" (${p.email})?`)) {
       try {
         await deleteDoc(doc(db, 'profiles', p.id));
-        setActionNotice(`Pengguna "${p.name}" berhasil dihapus.`);
+        setActionNotice(`Pengguna "${p.name}" berhasil dihapus dari sistem.`);
         setTimeout(() => setActionNotice(null), 4000);
         fetchData();
       } catch (err) {
@@ -268,18 +284,44 @@ export default function KelolaPenggunaPage() {
     });
   };
 
-  const getRoleBadge = (role: Role) => {
+  // Helper Warna Avatar dan Badge Role
+  const getRoleVisual = (role: Role) => {
     switch (role) {
       case 'admin_sistem':
-        return 'bg-indigo-50 text-indigo-700 border-indigo-200/80';
+        return {
+          badge: 'bg-indigo-50 text-indigo-700 border-indigo-200/90',
+          avatarGrad: 'from-indigo-600 to-violet-700 text-white',
+          label: 'Admin Sistem',
+          icon: <ShieldCheck size={12} className="shrink-0 text-indigo-600" />,
+        };
       case 'supervisor_k3':
-        return 'bg-blue-50 text-blue-700 border-blue-200/80';
+        return {
+          badge: 'bg-blue-50 text-blue-700 border-blue-200/90',
+          avatarGrad: 'from-blue-600 to-cyan-700 text-white',
+          label: 'Supervisor K3',
+          icon: <Shield size={12} className="shrink-0 text-blue-600" />,
+        };
       case 'petugas':
-        return 'bg-emerald-50 text-emerald-800 border-emerald-200/80';
+        return {
+          badge: 'bg-emerald-50 text-emerald-800 border-emerald-200/90',
+          avatarGrad: 'from-emerald-600 to-teal-700 text-white',
+          label: 'Petugas Lapangan',
+          icon: <Wrench size={12} className="shrink-0 text-emerald-700" />,
+        };
       case 'manajemen':
-        return 'bg-purple-50 text-purple-700 border-purple-200/80';
+        return {
+          badge: 'bg-amber-50 text-amber-800 border-amber-200/90',
+          avatarGrad: 'from-amber-600 to-orange-700 text-white',
+          label: 'Manajemen',
+          icon: <Briefcase size={12} className="shrink-0 text-amber-700" />,
+        };
       default:
-        return 'bg-slate-50 text-slate-700 border-slate-200';
+        return {
+          badge: 'bg-slate-50 text-slate-700 border-slate-200',
+          avatarGrad: 'from-slate-600 to-slate-800 text-white',
+          label: role,
+          icon: <User size={12} className="shrink-0 text-slate-600" />,
+        };
     }
   };
 
@@ -293,19 +335,23 @@ export default function KelolaPenggunaPage() {
   }
 
   return (
-    <div className="space-y-5">
-      {/* Header Halaman Responsif */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3.5 pb-3 border-b border-slate-200/80">
+    <div className="space-y-6">
+      {/* 1. Header Halaman */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200/80">
         <div>
-          <div className="flex items-center gap-2">
-            <Users size={22} className="text-primary shrink-0" />
-            <h1 className="text-xl sm:text-2xl font-black tracking-wider text-slate-900 uppercase">
-              KELOLA PENGGUNA
-            </h1>
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-teal-50 text-primary border border-teal-100 shadow-2xs">
+              <Users size={22} />
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-black tracking-wider text-slate-900 uppercase">
+                KELOLA PENGGUNA
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-500 font-medium">
+                Manajemen hak akses, akun kredensial login, dan penugasan area gudang
+              </p>
+            </div>
           </div>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1 uppercase font-semibold">
-            MANAJEMEN HAK AKSES PENGGUNA, KREDENSIAL LOGIN, DAN PENUGASAN GUDANG
-          </p>
         </div>
 
         <button
@@ -317,26 +363,87 @@ export default function KelolaPenggunaPage() {
         </button>
       </div>
 
-      {/* Notifikasi Tindakan */}
+      {/* 2. Banner Notifikasi Tindakan */}
       {actionNotice && (
-        <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold flex items-center gap-2.5 animate-in fade-in">
+        <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold flex items-center gap-2.5 animate-in fade-in shadow-2xs">
           <CheckCircle2 size={17} className="text-emerald-600 shrink-0" />
           <span>{actionNotice}</span>
         </div>
       )}
 
-      {/* BAR PENCARIAN & FILTER RESPONSIF */}
-      <div className="card p-3 sm:p-4 bg-white border border-slate-200/90 shadow-2xs space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+      {/* 3. Kartu Metrik Statistik Pengguna */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {/* Total Pengguna */}
+        <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs flex items-center gap-3.5 hover:border-slate-300 transition-colors">
+          <div className="h-11 w-11 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+            <Users size={20} />
+          </div>
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
+              Total Pengguna
+            </span>
+            <span className="text-xl font-black text-slate-900 leading-tight">{stats.total}</span>
+          </div>
+        </div>
+
+        {/* Petugas Lapangan */}
+        <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs flex items-center gap-3.5 hover:border-slate-300 transition-colors">
+          <div className="h-11 w-11 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+            <Wrench size={20} />
+          </div>
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
+              Petugas Lapangan
+            </span>
+            <span className="text-xl font-black text-slate-900 leading-tight">
+              {stats.petugasCount}
+            </span>
+          </div>
+        </div>
+
+        {/* Supervisor & Admin */}
+        <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs flex items-center gap-3.5 hover:border-slate-300 transition-colors">
+          <div className="h-11 w-11 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+            <ShieldCheck size={20} />
+          </div>
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
+              Admin &amp; Supervisor
+            </span>
+            <span className="text-xl font-black text-slate-900 leading-tight">
+              {stats.supervisorAdminCount}
+            </span>
+          </div>
+        </div>
+
+        {/* Akun Aktif */}
+        <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs flex items-center gap-3.5 hover:border-slate-300 transition-colors">
+          <div className="h-11 w-11 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 shrink-0">
+            <UserCheck size={20} />
+          </div>
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
+              Akun Aktif
+            </span>
+            <span className="text-xl font-black text-teal-700 leading-tight">
+              {stats.activeCount} <span className="text-xs font-semibold text-slate-400">/ {stats.total}</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. Bilah Pencarian & Filter Modern */}
+      <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
           {/* Input Cari */}
           <div className="sm:col-span-6 relative">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Cari nama pengguna atau alamat email…"
-              className="input pl-9 h-10 w-full text-xs font-medium rounded-xl border-slate-200 bg-slate-50/50 focus:bg-white transition-all"
+              className="input pl-10 h-10.5 w-full text-xs font-medium rounded-xl border-slate-200 bg-slate-50/60 focus:bg-white transition-all shadow-2xs"
             />
             {searchQuery && (
               <button
@@ -354,7 +461,7 @@ export default function KelolaPenggunaPage() {
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
-              className="input h-10 w-full text-xs font-semibold rounded-xl border-slate-200 bg-slate-50/50"
+              className="input h-10.5 w-full text-xs font-semibold rounded-xl border-slate-200 bg-slate-50/60 shadow-2xs"
             >
               <option value="all">Semua Peran (Role)</option>
               <option value="petugas">Petugas Lapangan</option>
@@ -369,7 +476,7 @@ export default function KelolaPenggunaPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="input h-10 w-full text-xs font-semibold rounded-xl border-slate-200 bg-slate-50/50"
+              className="input h-10.5 w-full text-xs font-semibold rounded-xl border-slate-200 bg-slate-50/60 shadow-2xs"
             >
               <option value="all">Semua Status</option>
               <option value="active">Status: Aktif</option>
@@ -378,11 +485,11 @@ export default function KelolaPenggunaPage() {
           </div>
         </div>
 
-        {/* Ringkasan Jumlah Pengguna */}
-        <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100">
+        {/* Ringkasan Filter & Reset */}
+        <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1.5 border-t border-slate-100">
           <span>
-            Menampilkan <strong className="text-slate-900">{filteredProfiles.length}</strong> dari{' '}
-            <strong className="text-slate-900">{profiles.length}</strong> total pengguna
+            Menampilkan <strong className="text-slate-900 font-bold">{filteredProfiles.length}</strong> dari{' '}
+            <strong className="text-slate-900 font-bold">{profiles.length}</strong> pengguna
           </span>
           {(searchQuery || roleFilter !== 'all' || statusFilter !== 'all') && (
             <button
@@ -400,10 +507,10 @@ export default function KelolaPenggunaPage() {
         </div>
       </div>
 
-      {/* ================= TAMPILAN MOBILE: KARTU RESPONSIF (BLOCK PADA MD:HIDDEN) ================= */}
+      {/* 5. TAMPILAN MOBILE: KARTU PENGGUNA MODERN (MD:HIDDEN) */}
       <div className="block md:hidden space-y-3">
         {filteredProfiles.map((p) => {
-          const roleLabel = ROLE_LABEL[p.role as Role] || p.role;
+          const roleVisual = getRoleVisual(p.role as Role);
           const assignedWh = (p.warehouseIds || [])
             .map((id: string) => warehouses.find((w) => w.id === id)?.name || id)
             .join(', ');
@@ -411,93 +518,103 @@ export default function KelolaPenggunaPage() {
           return (
             <div
               key={p.id}
-              className="card p-4 bg-white border border-slate-200/90 shadow-2xs space-y-3 transition-all hover:border-slate-300"
+              className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-3.5 transition-all hover:border-slate-300"
             >
-              {/* Header Kartu: Nama & Status */}
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2.5">
-                  <div className="h-9 w-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-black text-slate-700 text-xs shrink-0">
+              {/* Header Kartu: Avatar + Nama + Email + Status */}
+              <div className="flex items-start justify-between gap-2.5">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`h-10 w-10 rounded-xl bg-gradient-to-br ${roleVisual.avatarGrad} shadow-xs flex items-center justify-center font-black text-sm shrink-0`}
+                  >
                     {p.name ? p.name.charAt(0).toUpperCase() : 'U'}
                   </div>
                   <div>
-                    <strong className="text-xs font-extrabold text-slate-900 block leading-tight">
+                    <strong className="text-sm font-extrabold text-slate-900 block leading-tight">
                       {p.name}
                     </strong>
-                    <span className="text-[11px] font-mono text-slate-500 break-all">{p.email}</span>
+                    <span className="text-xs font-mono text-slate-500 break-all">{p.email}</span>
                   </div>
                 </div>
 
                 <span
-                  className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold border shrink-0 ${
+                  className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full border shrink-0 ${
                     p.active
                       ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                       : 'bg-red-50 text-red-800 border-red-200'
                   }`}
                 >
-                  {p.active ? 'Aktif' : 'Nonaktif'}
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      p.active ? 'bg-emerald-500 animate-pulse' : 'bg-red-400'
+                    }`}
+                  />
+                  <span>{p.active ? 'Aktif' : 'Nonaktif'}</span>
                 </span>
               </div>
 
               {/* Rincian Role & Penugasan */}
-              <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-[11px]">
+              <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-slate-50/80 border border-slate-100 text-xs">
                 <div>
-                  <span className="text-[10px] font-semibold text-slate-400 uppercase block mb-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
                     Role Sistem:
                   </span>
                   <span
-                    className={`inline-block text-[10px] font-extrabold px-2 py-0.5 rounded-md border uppercase ${getRoleBadge(
-                      p.role
-                    )}`}
+                    className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-md border uppercase ${roleVisual.badge}`}
                   >
-                    {roleLabel}
+                    {roleVisual.icon}
+                    <span>{roleVisual.label}</span>
                   </span>
                 </div>
 
                 <div>
-                  <span className="text-[10px] font-semibold text-slate-400 uppercase block mb-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
                     Penugasan Gudang:
                   </span>
-                  <span className="font-bold text-slate-800 text-[11px] block truncate">
+                  <div className="font-semibold text-slate-800 text-xs truncate">
                     {p.role === 'petugas' ? (
-                      assignedWh ? `Gudang ${assignedWh}` : <span className="text-red-500 font-bold">Belum ada</span>
+                      assignedWh ? (
+                        <span className="text-teal-800 font-bold">Gudang {assignedWh}</span>
+                      ) : (
+                        <span className="text-red-500 font-bold">Belum ditugaskan</span>
+                      )
                     ) : (
-                      'Semua Gudang'
+                      <span className="text-slate-500 font-medium">Semua Gudang</span>
                     )}
-                  </span>
+                  </div>
                 </div>
               </div>
 
-              {/* Baris Tombol Aksi Mobile */}
-              <div className="pt-1 flex items-center justify-end gap-1.5 border-t border-slate-100">
+              {/* Baris Tombol Aksi */}
+              <div className="pt-1 flex items-center justify-end gap-2 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => handleToggleActive(p.id, !!p.active)}
-                  className={`text-[11px] font-bold px-2.5 py-1.5 rounded-lg border transition-all flex items-center gap-1 ${
+                  className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-all flex items-center gap-1.5 shadow-2xs ${
                     p.active
-                      ? 'text-amber-700 bg-amber-50/70 border-amber-200 hover:bg-amber-100'
-                      : 'text-emerald-700 bg-emerald-50/70 border-emerald-200 hover:bg-emerald-100'
+                      ? 'text-amber-800 bg-amber-50/80 border-amber-200 hover:bg-amber-100'
+                      : 'text-emerald-800 bg-emerald-50/80 border-emerald-200 hover:bg-emerald-100'
                   }`}
                 >
-                  <Power size={12} />
+                  <Power size={13} />
                   <span>{p.active ? 'Nonaktifkan' : 'Aktifkan'}</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => handleOpenEditModal(p)}
-                  className="text-[11px] font-bold px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 flex items-center gap-1"
+                  className="text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 shadow-2xs flex items-center gap-1.5 transition-all"
                 >
-                  <Edit2 size={12} />
+                  <Edit2 size={13} className="text-blue-600" />
                   <span>Edit</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => handleDeleteUser(p)}
-                  className="text-[11px] font-bold px-2 py-1.5 rounded-lg border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 flex items-center gap-1"
+                  className="text-xs font-bold p-2 rounded-xl border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 shadow-2xs flex items-center transition-all"
                   title="Hapus Pengguna"
                 >
-                  <Trash2 size={12} />
+                  <Trash2 size={14} />
                 </button>
               </div>
             </div>
@@ -505,110 +622,155 @@ export default function KelolaPenggunaPage() {
         })}
 
         {filteredProfiles.length === 0 && (
-          <div className="card p-8 text-center text-slate-500 space-y-2 bg-white border border-slate-200">
+          <div className="p-8 text-center text-slate-500 space-y-2 bg-white rounded-2xl border border-slate-200">
             <Users size={32} className="mx-auto text-slate-300" />
             <p className="text-xs font-semibold">Tidak ada pengguna yang cocok dengan kriteria pencarian.</p>
           </div>
         )}
       </div>
 
-      {/* ================= TAMPILAN DESKTOP & TABLET: TABEL RESIK (HIDDEN PADA MD:BLOCK) ================= */}
+      {/* 6. TAMPILAN DESKTOP & TABLET: TABEL RESIK & ELEGAN (HIDDEN PADA MD:BLOCK) */}
       <div className="hidden md:block">
-        <Card title="DAFTAR PENGGUNA SISTEM">
-          <div className="table-container">
-            <table className="table">
+        <div className="rounded-2xl bg-white border border-slate-200/90 shadow-2xs overflow-hidden">
+          {/* Header Card */}
+          <div className="px-6 py-4 border-b border-slate-200/80 flex items-center justify-between bg-slate-50/50">
+            <span className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-2">
+              <Users size={16} className="text-primary" />
+              DAFTAR PENGGUNA SISTEM
+            </span>
+            <span className="text-xs font-bold text-slate-400">
+              {filteredProfiles.length} Pengguna Terdaftar
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
               <thead>
-                <tr>
-                  <th>Nama Lengkap</th>
-                  <th>Alamat Email</th>
-                  <th>Role Sistem</th>
-                  <th>Penugasan Gudang</th>
-                  <th>Status</th>
-                  <th className="text-right">Aksi</th>
+                <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-black uppercase tracking-wider text-slate-500">
+                  <th className="py-3.5 px-6">Pengguna &amp; Email</th>
+                  <th className="py-3.5 px-4">Role Sistem</th>
+                  <th className="py-3.5 px-4">Penugasan Area Gudang</th>
+                  <th className="py-3.5 px-4">Status Akun</th>
+                  <th className="py-3.5 px-6 text-right">Tindakan</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-100 text-xs">
                 {filteredProfiles.map((p) => {
-                  const roleLabel = ROLE_LABEL[p.role as Role] || p.role;
+                  const roleVisual = getRoleVisual(p.role as Role);
                   const assignedWh = (p.warehouseIds || [])
                     .map((id: string) => warehouses.find((w) => w.id === id)?.name || id)
                     .join(', ');
 
                   return (
-                    <tr key={p.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td>
-                        <div className="flex items-center gap-2.5">
-                          <div className="h-8 w-8 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-700 text-xs shrink-0">
+                    <tr
+                      key={p.id}
+                      className="hover:bg-slate-50/70 transition-colors group"
+                    >
+                      {/* Kolom 1: Avatar + Nama + Email Terpadu */}
+                      <td className="py-3.5 px-6">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`h-9 w-9 rounded-xl bg-gradient-to-br ${roleVisual.avatarGrad} shadow-xs flex items-center justify-center font-bold text-xs shrink-0`}
+                          >
                             {p.name ? p.name.charAt(0).toUpperCase() : 'U'}
                           </div>
-                          <span className="font-bold text-slate-900 text-xs">{p.name}</span>
+                          <div>
+                            <strong className="font-bold text-slate-900 text-xs block leading-snug">
+                              {p.name}
+                            </strong>
+                            <span className="font-mono text-[11px] text-slate-500 block">
+                              {p.email}
+                            </span>
+                          </div>
                         </div>
                       </td>
 
-                      <td className="font-mono text-xs text-slate-600">{p.email}</td>
-
-                      <td>
+                      {/* Kolom 2: Role Sistem dengan Icon */}
+                      <td className="py-3.5 px-4">
                         <span
-                          className={`inline-block text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border uppercase ${getRoleBadge(
-                            p.role
-                          )}`}
+                          className={`inline-flex items-center gap-1.5 text-[10px] font-black px-2.5 py-1 rounded-full border uppercase tracking-wide ${roleVisual.badge}`}
                         >
-                          {roleLabel}
+                          {roleVisual.icon}
+                          <span>{roleVisual.label}</span>
                         </span>
                       </td>
 
-                      <td className="text-xs text-slate-700">
+                      {/* Kolom 3: Penugasan Gudang */}
+                      <td className="py-3.5 px-4">
                         {p.role === 'petugas' ? (
                           assignedWh ? (
-                            <span className="font-semibold text-slate-800">Gudang {assignedWh}</span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {assignedWh.split(', ').map((wName: string) => (
+                                <span
+                                  key={wName}
+                                  className="px-2 py-0.5 rounded-md bg-teal-50 border border-teal-200/80 text-teal-800 text-[10px] font-bold"
+                                >
+                                  Gudang {wName}
+                                </span>
+                              ))}
+                            </div>
                           ) : (
-                            <span className="text-red-500 font-bold">Belum ada gudang</span>
+                            <span className="text-[11px] font-bold text-red-500">Belum ditugaskan</span>
                           )
                         ) : (
-                          <span className="text-slate-400 font-medium">Semua Gudang (WH2, WH3, WH4)</span>
+                          <span className="text-slate-500 font-medium text-[11px]">
+                            Semua Gudang (WH2, WH3, WH4)
+                          </span>
                         )}
                       </td>
 
-                      <td>
+                      {/* Kolom 4: Status Akun */}
+                      <td className="py-3.5 px-4">
                         <span
-                          className={`text-xs px-2.5 py-0.5 rounded-full font-bold border inline-block ${
+                          className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
                             p.active
                               ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                               : 'bg-red-50 text-red-800 border-red-200'
                           }`}
                         >
-                          {p.active ? 'Aktif' : 'Nonaktif'}
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full ${
+                              p.active ? 'bg-emerald-500 animate-pulse' : 'bg-red-400'
+                            }`}
+                          />
+                          <span>{p.active ? 'Aktif' : 'Nonaktif'}</span>
                         </span>
                       </td>
 
-                      <td className="text-right">
-                        <div className="inline-flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEditModal(p)}
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-primary hover:bg-slate-100 transition"
-                            title="Edit Pengguna"
-                          >
-                            <Edit2 size={15} />
-                          </button>
+                      {/* Kolom 5: Tombol Aksi Sejajar & Rapi */}
+                      <td className="py-3.5 px-6 text-right">
+                        <div className="inline-flex items-center gap-2">
+                          {/* Tombol Toggle Status */}
                           <button
                             type="button"
                             onClick={() => handleToggleActive(p.id, !!p.active)}
-                            className={`text-xs font-bold px-2 py-1 rounded-lg border transition ${
+                            className={`text-[11px] font-bold px-2.5 py-1.5 rounded-lg border transition-all ${
                               p.active
-                                ? 'text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100'
-                                : 'text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100'
+                                ? 'text-amber-800 bg-amber-50/70 border-amber-200/80 hover:bg-amber-100'
+                                : 'text-emerald-800 bg-emerald-50/70 border-emerald-200/80 hover:bg-emerald-100'
                             }`}
                           >
                             {p.active ? 'Nonaktifkan' : 'Aktifkan'}
                           </button>
+
+                          {/* Tombol Edit */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditModal(p)}
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 border border-slate-200/80 hover:border-blue-200 transition-all shadow-2xs"
+                            title="Edit Data Pengguna"
+                          >
+                            <Edit2 size={14} />
+                          </button>
+
+                          {/* Tombol Hapus */}
                           <button
                             type="button"
                             onClick={() => handleDeleteUser(p)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 border border-slate-200/80 hover:border-red-200 transition-all shadow-2xs"
                             title="Hapus Pengguna"
                           >
-                            <Trash2 size={15} />
+                            <Trash2 size={14} />
                           </button>
                         </div>
                       </td>
@@ -618,18 +780,18 @@ export default function KelolaPenggunaPage() {
 
                 {filteredProfiles.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="text-center py-10 text-slate-500 text-xs">
-                      Tidak ada pengguna yang cocok dengan kriteria filter.
+                    <td colSpan={5} className="py-12 text-center text-slate-400 text-xs">
+                      Tidak ada data pengguna yang cocok dengan kriteria pencarian.
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
-        </Card>
+        </div>
       </div>
 
-      {/* ================= MODAL TAMBAH / EDIT PENGGUNA (RESPONSIF TOUCH-FRIENDLY) ================= */}
+      {/* 7. MODAL TAMBAH / EDIT PENGGUNA (TOUCH-FRIENDLY & BERSIH) */}
       {userModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-150">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[92vh] flex flex-col overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150">
