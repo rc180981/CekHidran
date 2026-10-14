@@ -44,8 +44,8 @@ export default async function LoginPage({
 
         {/* Footer info */}
         <div className="mt-6 text-center">
-          <p className="text-[11px] sm:text-xs font-medium text-slate-500">
-            Kepemilikan dan akses terbatas untuk penggunaan internal perusahaan &bull; v1.0.0
+          <p className="text-[11px] sm:text-xs font-semibold text-slate-500">
+            Akses Terbatas Internal K3 &bull; Versi 1.2.0 (Pembaruan 14 Okt 2026)
           </p>
         </div>
       </div>
