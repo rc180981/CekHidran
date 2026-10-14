@@ -341,7 +341,7 @@ export default function PengaturanPage() {
         </Card>
 
         {/* KARTU 2: FITUR DELETE DATA INPUT (KHUSUS ROLE ADMIN) */}
-        {isAdmin && (
+        {isAdmin ? (
           <div className="card p-5 sm:p-6 border-2 border-red-200 bg-gradient-to-b from-white to-red-50/20 shadow-xs space-y-5">
             <div className="flex items-center justify-between pb-3 border-b border-red-100">
               <div className="flex items-center gap-2">
@@ -425,6 +425,25 @@ export default function PengaturanPage() {
               >
                 <Trash2 size={16} /> Hapus Data Input Pemeriksaan &amp; Gambar…
               </button>
+            </div>
+          </div>
+        ) : (
+          <div className="card p-5 sm:p-6 border border-slate-200 bg-slate-50/70 shadow-xs space-y-3">
+            <div className="flex items-center gap-2 text-slate-700">
+              <ShieldAlert size={18} className="text-slate-500" />
+              <h2 className="text-sm font-black uppercase tracking-wider text-slate-800">
+                MANAJEMEN DATA INPUT &amp; RIWAYAT
+              </h2>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Fitur pembersihan dan penghapusan data input pemeriksaan &amp; gambar hanya dapat diakses oleh pengguna dengan role <strong>Admin Sistem</strong>.
+            </p>
+            <div className="text-xs bg-white p-3 rounded-xl border border-slate-200 text-slate-600 space-y-1">
+              <div>Akun Anda saat ini: <strong>{profile?.name || profile?.email || 'Pengguna'}</strong></div>
+              <div>Role: <span className="font-bold text-amber-700 uppercase">{profile?.role || 'Memuat role…'}</span></div>
+              <p className="text-[11px] text-slate-400 mt-1">
+                *Silakan beralih atau login menggunakan akun <strong>admin@cekhidran.id</strong> untuk mengelola dan menghapus data input.
+              </p>
             </div>
           </div>
         )}

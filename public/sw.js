@@ -3,7 +3,7 @@
  * - Navigasi halaman: network-first, fallback ke cache (abaikan query) lalu /offline
  * - /api/*: selalu jaringan (antrean offline ditangani IndexedDB di klien)
  */
-const VERSION = 'cek-hidran-v1';
+const VERSION = 'cek-hidran-v2';
 const STATIC_CACHE = `${VERSION}-static`;
 const PAGE_CACHE = `${VERSION}-pages`;
 const PRECACHE = ['/offline', '/manifest.webmanifest', '/icons/192', '/icons/512'];
