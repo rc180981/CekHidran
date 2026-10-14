@@ -18,8 +18,35 @@ export default function ServiceWorkerRegister() {
     document.addEventListener('gesturestart', handleGestureStart, { passive: false });
 
     if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
-      navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch((err) => {
-        console.warn('Gagal mendaftarkan service worker', err);
+      navigator.serviceWorker
+        .register('/sw.js', { scope: '/' })
+        .then((reg) => {
+          // Paksa periksa pembaruan Service Worker setiap kali aplikasi dibuka
+          reg.update().catch(() => undefined);
+
+          reg.addEventListener('updatefound', () => {
+            const installing = reg.installing;
+            if (installing) {
+              installing.addEventListener('statechange', () => {
+                if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+                  // Ada update baru yang terpasang, reload otomatis sekali untuk menggunakan kode terbaru
+                  console.log('Versi baru Cek Hidran terdeteksi, memuat ulang aset...');
+                  window.location.reload();
+                }
+              });
+            }
+          });
+        })
+        .catch((err) => {
+          console.warn('Gagal mendaftarkan service worker', err);
+        });
+
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!refreshing) {
+          refreshing = true;
+          window.location.reload();
+        }
       });
     }
 
@@ -28,5 +55,6 @@ export default function ServiceWorkerRegister() {
       document.removeEventListener('gesturestart', handleGestureStart);
     };
   }, []);
+
   return null;
 }
