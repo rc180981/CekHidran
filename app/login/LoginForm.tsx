@@ -7,14 +7,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase/client';
 import { homePath } from '@/lib/rbac';
 import type { Role } from '@/lib/rbac';
-import { Mail, Lock, Eye, EyeOff, LogIn, AlertCircle, Sparkles, Loader2 } from 'lucide-react';
-
-const DEMO_ACCOUNTS = [
-  { roleName: 'Petugas WH2', email: 'petugas@cekhidran.id', pass: 'Petugas#12345', badge: 'WH-02' },
-  { roleName: 'Supervisor K3', email: 'supervisor@cekhidran.id', pass: 'Supervisor#12345', badge: 'K3 HSE' },
-  { roleName: 'Admin', email: 'admin@cekhidran.id', pass: 'Admin#12345', badge: 'Full' },
-  { roleName: 'Manajemen', email: 'manajemen@cekhidran.id', pass: 'Manajemen#12345', badge: 'Read' },
-];
+import { Mail, Lock, Eye, EyeOff, LogIn, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function LoginForm({ next }: { next?: string }) {
   const router = useRouter();
@@ -25,12 +18,6 @@ export default function LoginForm({ next }: { next?: string }) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const fillDemoAccount = (demoEmail: string, demoPass: string) => {
-    setEmail(demoEmail);
-    setPassword(demoPass);
-    setError(null);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -39,7 +26,7 @@ export default function LoginForm({ next }: { next?: string }) {
     try {
       const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
       const userDoc = await getDoc(doc(db, 'profiles', cred.user.uid));
-      
+
       if (!userDoc.exists() || !userDoc.data().active) {
         setError('Akun Anda tidak aktif atau profil belum terdaftar di sistem.');
         setLoading(false);
@@ -48,7 +35,7 @@ export default function LoginForm({ next }: { next?: string }) {
 
       const role = userDoc.data().role as Role;
       const targetNext = next || searchParams.get('next');
-      
+
       if (targetNext && targetNext.startsWith('/') && !targetNext.startsWith('/login')) {
         router.push(targetNext);
       } else {
@@ -58,15 +45,16 @@ export default function LoginForm({ next }: { next?: string }) {
       console.error(err);
       if (
         err.code === 'auth/invalid-credential' ||
-        err.code === 'auth/user-not-found' ||
-        err.code === 'auth/wrong-password'
+        err.code === 'auth/wrong-password' ||
+        err.code === 'auth/user-not-found'
       ) {
-        setError('Email atau kata sandi tidak sesuai.');
-      } else if (err.code === 'auth/network-request-failed') {
-        setError('Koneksi internet bermasalah. Periksa jaringan Anda.');
+        setError('Alamat email atau kata sandi salah. Silakan periksa kembali.');
+      } else if (err.code === 'auth/too-many-requests') {
+        setError('Terlalu banyak percobaan masuk yang gagal. Silakan coba lagi beberapa saat.');
       } else {
-        setError('Gagal masuk ke sistem. Silakan coba sesaat lagi.');
+        setError(err.message || 'Gagal masuk ke sistem. Silakan coba lagi.');
       }
+    } finally {
       setLoading(false);
     }
   };
@@ -76,7 +64,7 @@ export default function LoginForm({ next }: { next?: string }) {
       {/* Input Email */}
       <div>
         <label htmlFor="email" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-          Email Petugas
+          Email Pengguna
         </label>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -85,7 +73,7 @@ export default function LoginForm({ next }: { next?: string }) {
           <input
             id="email"
             type="email"
-            autoComplete="username"
+            autoComplete="email"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -121,11 +109,7 @@ export default function LoginForm({ next }: { next?: string }) {
             aria-label={showPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
             className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none transition-colors"
           >
-            {showPassword ? (
-              <EyeOff className="h-4 w-4" />
-            ) : (
-              <Eye className="h-4 w-4" />
-            )}
+            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
       </div>
@@ -142,7 +126,7 @@ export default function LoginForm({ next }: { next?: string }) {
       )}
 
       {/* Submit Button */}
-      <div className="pt-1">
+      <div className="pt-2">
         <button
           type="submit"
           disabled={loading}
@@ -160,47 +144,6 @@ export default function LoginForm({ next }: { next?: string }) {
             </>
           )}
         </button>
-      </div>
-
-      {/* Quick Demo Accounts */}
-      <div className="pt-2">
-        <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1">
-              <Sparkles className="h-3 w-3 text-amber-500" />
-              Pilih Akun Demo Cepat
-            </span>
-            <span className="text-[10px] text-slate-400">Klik untuk isi</span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-1.5">
-            {DEMO_ACCOUNTS.map((acc) => {
-              const isSelected = email === acc.email;
-              return (
-                <button
-                  key={acc.roleName}
-                  type="button"
-                  onClick={() => fillDemoAccount(acc.email, acc.pass)}
-                  className={`flex flex-col items-start text-left p-2 rounded-lg border transition-all text-xs ${
-                    isSelected
-                      ? 'border-primary bg-primary/10 text-primary-900 font-semibold shadow-xs ring-1 ring-primary/30'
-                      : 'border-slate-200/90 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center justify-between w-full">
-                    <span className="text-[11px] font-bold truncate">{acc.roleName}</span>
-                    <span className="text-[9px] px-1 py-0.2 rounded bg-slate-100 text-slate-500 font-medium">
-                      {acc.badge}
-                    </span>
-                  </div>
-                  <span className="text-[10px] text-slate-400 truncate w-full mt-0.5">
-                    {acc.email}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
       </div>
     </form>
   );
