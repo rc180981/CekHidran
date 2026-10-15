@@ -1,0 +1,14 @@
+User-agent: *
+# Izinkan halaman publik (landing & login)
+Allow: /$
+Allow: /login$
+
+# Blokir semua halaman internal dari indexing mesin pencari
+Disallow: /dashboard
+Disallow: /petugas
+Disallow: /api/
+Disallow: /tidak-diizinkan
+Disallow: /offline
+Disallow: /test-qr
+
+Sitemap: https://cekhidran.vercel.app/sitemap.xml

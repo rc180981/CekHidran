@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireUser } from '@/lib/auth';
+import { getCurrentUser, errorResponse, AuthError } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    await requireUser();
+    const user = await getCurrentUser();
+    if (!user) throw new AuthError(401, 'Sesi berakhir, silakan masuk kembali.');
+
     const searchParams = request.nextUrl.searchParams;
     const path = searchParams.get('path');
 
@@ -24,7 +26,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.redirect(data.signedUrl);
-  } catch (err: any) {
-    return NextResponse.json({ error: 'Tidak diizinkan' }, { status: 403 });
+  } catch (e) {
+    return errorResponse(e);
   }
 }

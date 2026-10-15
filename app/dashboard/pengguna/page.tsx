@@ -201,8 +201,8 @@ export default function KelolaPenggunaPage() {
         setTimeout(() => setActionNotice(null), 4000);
       } else {
         // Mode 2: Tambah Pengguna Baru
-        if (!userForm.password || userForm.password.length < 6) {
-          setFormError('Kata sandi wajib diisi minimal 6 karakter.');
+        if (!userForm.password || userForm.password.length < 12) {
+          setFormError('Kata sandi wajib diisi minimal 12 karakter.');
           setSubmitting(false);
           return;
         }
