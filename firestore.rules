@@ -1,88 +1,114 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Fungsi pembantu RBAC
-    function isSignedIn() {
+
+    // ==========================================
+    // HELPER FUNCTIONS (Fungsi Bantuan Keamanan)
+    // ==========================================
+
+    // Cek apakah pengguna sudah login ke sistem
+    function isAuthenticated() {
       return request.auth != null;
     }
-    
-    function userProfile() {
+
+    // Ambil data profil pengguna yang sedang login
+    function currentUserProfile() {
       return get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data;
     }
-    
-    function userRole() {
-      return userProfile().role;
-    }
-    
+
+    // Cek apakah pengguna memiliki Role Admin Sistem
     function isAdmin() {
-      return isSignedIn() && userRole() == 'admin_sistem';
-    }
-    
-    function isSupervisor() {
-      return isSignedIn() && userRole() == 'supervisor_k3';
-    }
-    
-    function isPetugas() {
-      return isSignedIn() && userRole() == 'petugas';
-    }
-    
-    function isManajemen() {
-      return isSignedIn() && userRole() == 'manajemen';
+      return isAuthenticated() && 
+        currentUserProfile().role == 'admin_sistem' && 
+        currentUserProfile().active == true;
     }
 
-    // Gudang & Profil
-    match /warehouses/{warehouseId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
+    // Cek apakah pengguna memiliki Role Supervisor K3 atau Admin
+    function isSupervisorOrAdmin() {
+      return isAuthenticated() && 
+        (currentUserProfile().role == 'admin_sistem' || currentUserProfile().role == 'supervisor_k3') && 
+        currentUserProfile().active == true;
     }
-    
+
+    // ==========================================
+    // KOLEKSI: PROFILES (Data Pengguna & Role)
+    // ==========================================
     match /profiles/{userId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
+      // Siapapun yang sudah login dapat membaca daftar profil (untuk nama petugas & verifikasi akses)
+      allow read: if isAuthenticated();
+
+      // Hanya Admin yang dapat membuat profil baru atau mengubah peran (role) pengguna lain
+      allow create: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
+
+      // Admin bisa update semua field; User sendiri hanya bisa ubah nama (TIDAK BISA ubah role sendiri)
+      allow update: if isAdmin() || (
+        isAuthenticated() && 
+        request.auth.uid == userId && 
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'active'])
+      );
+
+      // Hanya Admin yang bisa menghapus akun pengguna
+      allow delete: if isAdmin();
     }
-    
-    match /user_warehouses/{docId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-    
-    // Titik Hydrant & Checklist Items
-    match /hydrants/{hydrantId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-    
-    match /checklist_items/{itemId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-    
-    match /app_settings/{settingId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-    
-    // Inspeksi & Hasil
+
+    // ==========================================
+    // KOLEKSI: INSPECTIONS (Data Hasil Pemeriksaan)
+    // ==========================================
     match /inspections/{inspectionId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isAdmin() || isSupervisor() || isPetugas();
+      // Semua pengguna yang login dapat membaca hasil inspeksi untuk dashboard/laporan
+      allow read: if isAuthenticated();
+
+      // Petugas, Supervisor, dan Admin yang aktif dapat mengirimkan hasil inspeksi
+      allow create: if isAuthenticated() && currentUserProfile().active == true;
+
+      // Update hasil inspeksi diperbolehkan untuk Admin & Supervisor
+      allow update: if isSupervisorOrAdmin();
+
+      // HANYA Admin yang diizinkan menghapus data inspeksi (Fitur Hapus Data di Pengaturan)
       allow delete: if isAdmin();
     }
-    
-    // Temuan K3
+
+    // ==========================================
+    // KOLEKSI: FINDINGS (Temuan Kerusakan K3)
+    // ==========================================
     match /findings/{findingId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isAdmin() || isSupervisor();
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && currentUserProfile().active == true;
+      allow update: if isSupervisorOrAdmin();
       allow delete: if isAdmin();
     }
-    
-    // Audit logs
-    match /audit_logs/{logId} {
-      allow read: if isAdmin();
-      allow create: if isSignedIn();
+
+    // ==========================================
+    // KOLEKSI: HYDRANTS (Master Titik Hydrant)
+    // ==========================================
+    match /hydrants/{hydrantId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ==========================================
+    // KOLEKSI: WAREHOUSES (Master Gudang WH2, WH3, WH4)
+    // ==========================================
+    match /warehouses/{warehouseId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ==========================================
+    // KOLEKSI: CHECKLIST_ITEMS (Master Komponen Checksheet)
+    // ==========================================
+    match /checklist_items/{itemId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ==========================================
+    // KOLEKSI: APP_SETTINGS (Pengaturan Frekuensi & Sistem)
+    // ==========================================
+    match /app_settings/{settingId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
   }
 }
