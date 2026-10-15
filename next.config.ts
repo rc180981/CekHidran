@@ -29,22 +29,22 @@ const nextConfig: NextConfig = {
             key: 'Permissions-Policy',
             value: 'camera=(), microphone=(), geolocation=(), payment=()',
           },
-          // Content Security Policy — izinkan Firebase, Supabase, dan Vercel
+          // Content Security Policy — izinkan Firebase Firestore, Auth, Storage, dan Vercel
           {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              // Script: izinkan inline (Next.js memerlukan ini) dan domain Firebase
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://*.firebaseapp.com https://*.firebase.com",
+              // Script: izinkan inline (Next.js) dan domain Google/Firebase
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://*.firebaseapp.com https://*.firebase.com https://*.googleapis.com",
               // Style: izinkan inline (Tailwind) dan Google Fonts
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               // Font
               "font-src 'self' https://fonts.gstatic.com",
-              // Gambar: izinkan blob (foto kamera), data URI, Supabase storage, Google
-              "img-src 'self' blob: data: https://*.supabase.co https://*.googleusercontent.com",
-              // Koneksi: izinkan Supabase, Firebase, Vercel analytics
-              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.firebase.com https://firebaseinstallations.googleapis.com https://securetoken.googleapis.com https://identitytoolkit.googleapis.com https://*.firestore.googleapis.com",
-              // Frame: tidak diizinkan (cegah clickjacking)
+              // Gambar: izinkan blob (foto kamera), data URI, Firebase Storage, Google
+              "img-src 'self' blob: data: https://*.supabase.co https://*.googleusercontent.com https://*.firebasestorage.app https://*.googleapis.com",
+              // Koneksi: izinkan Firestore, Firebase Realtime/Auth, Google APIs, WebSockets
+              "connect-src 'self' https://*.googleapis.com https://firestore.googleapis.com https://*.firebase.com https://*.firebaseapp.com https://*.firebaseio.com wss://*.firebaseio.com https://*.supabase.co wss://*.supabase.co https://*.google-analytics.com https://*.analytics.google.com",
+              // Frame: tidak diizinkan untuk iframe luar (cegah clickjacking)
               "frame-ancestors 'none'",
               // Objek (Flash dll): diblokir
               "object-src 'none'",
