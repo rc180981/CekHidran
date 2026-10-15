@@ -24,10 +24,10 @@ const nextConfig: NextConfig = {
           { key: 'X-Frame-Options', value: 'DENY' },
           // Kontrol informasi Referer yang dikirim saat navigasi
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          // Batasi akses fitur browser yang tidak diperlukan
+          // Batasi akses fitur browser yang tidak diperlukan (izinkan camera untuk scan QR dan foto inspeksi)
           {
             key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=(), payment=()',
+            value: 'camera=(self), microphone=(), geolocation=(), payment=()',
           },
           // Content Security Policy — izinkan Firebase Firestore, Auth, Storage, dan Vercel
           {
