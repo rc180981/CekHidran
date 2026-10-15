@@ -660,7 +660,7 @@ export default function DashboardPage() {
                   ))}
                   {uncheckedHydrants.length === 0 && (
                     <p className="text-center py-6 text-sm text-emerald-700 font-semibold">
-                      🎉 Luar biasa! Seluruh 54 titik hydrant telah selesai diperiksa hari ini!
+                      🎉 Luar biasa! Seluruh {totalPoints} titik hydrant telah selesai diperiksa hari ini!
                     </p>
                   )}
                 </div>
@@ -702,7 +702,7 @@ export default function DashboardPage() {
                       <tr>
                         <th className="p-2.5 text-left">Tanggal</th>
                         <th className="p-2.5 text-center">Realisasi Cek</th>
-                        <th className="p-2.5 text-center">Target (54 Titik)</th>
+                        <th className="p-2.5 text-center">Target</th>
                         <th className="p-2.5 text-center">Persentase</th>
                       </tr>
                     </thead>
