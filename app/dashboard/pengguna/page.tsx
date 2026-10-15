@@ -32,6 +32,9 @@ import {
   ShieldCheck,
   Briefcase,
   Wrench,
+  Copy,
+  Check,
+  RefreshCw,
 } from 'lucide-react';
 
 export default function KelolaPenggunaPage() {
@@ -59,9 +62,14 @@ export default function KelolaPenggunaPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [resetEmailSent, setResetEmailSent] = useState(false);
-  const [resetEmailLoading, setResetEmailLoading] = useState(false);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+
+  // State Manajemen Kata Sandi Langsung (Direct Reset)
+  const [resetPasswordInput, setResetPasswordInput] = useState('');
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [resetSuccessNotice, setResetSuccessNotice] = useState<string | null>(null);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [copiedPassword, setCopiedPassword] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -134,6 +142,29 @@ export default function KelolaPenggunaPage() {
     }
   };
 
+  const generateRandomPassword = () => {
+    const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz';
+    let randomPart = '';
+    for (let i = 0; i < 6; i++) {
+      randomPart += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    const generated = `Hidran#${randomPart}!`;
+    if (editingUser) {
+      setResetPasswordInput(generated);
+      setShowResetPassword(true);
+    } else {
+      setUserForm((prev) => ({ ...prev, password: generated }));
+      setShowPassword(true);
+    }
+  };
+
+  const handleCopyPassword = (text: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedPassword(true);
+    setTimeout(() => setCopiedPassword(false), 2500);
+  };
+
   const handleOpenAddModal = () => {
     setEditingUser(null);
     setUserForm({
@@ -144,9 +175,10 @@ export default function KelolaPenggunaPage() {
       warehouseIds: ['wh2'],
       active: true,
     });
+    setResetPasswordInput('');
+    setResetSuccessNotice(null);
     setShowPassword(false);
     setFormError(null);
-    setResetEmailSent(false);
     setUserModalOpen(true);
   };
 
@@ -160,23 +192,49 @@ export default function KelolaPenggunaPage() {
       warehouseIds: p.warehouseIds || ['wh2'],
       active: !!p.active,
     });
+    setResetPasswordInput('');
+    setResetSuccessNotice(null);
     setShowPassword(false);
+    setShowResetPassword(false);
     setFormError(null);
-    setResetEmailSent(false);
     setUserModalOpen(true);
   };
 
-  const handleSendResetEmail = async (emailTarget: string) => {
-    setResetEmailLoading(true);
+  const handleDirectResetPassword = async () => {
+    if (!editingUser) return;
+    if (!resetPasswordInput || resetPasswordInput.trim().length < 6) {
+      setFormError('Kata sandi baru minimal 6 karakter.');
+      return;
+    }
+
+    setResetLoading(true);
     setFormError(null);
+    setResetSuccessNotice(null);
+
     try {
-      await sendPasswordResetEmail(auth, emailTarget.trim());
-      setResetEmailSent(true);
+      const res = await fetch('/api/admin/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          adminUid: auth.currentUser?.uid,
+          targetUid: editingUser.id,
+          newPassword: resetPasswordInput.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Gagal mereset kata sandi.');
+      }
+
+      setResetSuccessNotice(`Kata sandi akun "${editingUser.name}" berhasil direset langsung ke: ${resetPasswordInput.trim()}`);
+      setActionNotice(`Kata sandi akun "${editingUser.name}" berhasil direset.`);
+      setTimeout(() => setActionNotice(null), 4000);
     } catch (err: any) {
       console.error(err);
-      setFormError('Gagal mengirim email reset: ' + (err?.message || 'Error'));
+      setFormError(err.message || 'Gagal mereset kata sandi pengguna.');
     } finally {
-      setResetEmailLoading(false);
+      setResetLoading(false);
     }
   };
 
@@ -188,6 +246,30 @@ export default function KelolaPenggunaPage() {
     try {
       if (editingUser) {
         // Mode 1: Edit Data Pengguna
+        // Jika admin juga mengisi kata sandi baru di form edit
+        if (resetPasswordInput && resetPasswordInput.trim().length > 0) {
+          if (resetPasswordInput.trim().length < 6) {
+            setFormError('Kata sandi baru minimal harus 6 karakter.');
+            setSubmitting(false);
+            return;
+          }
+
+          const res = await fetch('/api/admin/reset-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              adminUid: auth.currentUser?.uid,
+              targetUid: editingUser.id,
+              newPassword: resetPasswordInput.trim(),
+            }),
+          });
+
+          const data = await res.json();
+          if (!res.ok) {
+            throw new Error(data.error || 'Gagal memperbarui kata sandi akun.');
+          }
+        }
+
         await updateDoc(doc(db, 'profiles', editingUser.id), {
           name: userForm.name.trim(),
           email: userForm.email.trim(),
@@ -197,17 +279,17 @@ export default function KelolaPenggunaPage() {
           updated_at: new Date().toISOString(),
         });
 
-        setActionNotice(`Data pengguna "${userForm.name}" berhasil diperbarui.`);
+        setActionNotice(`Data profil pengguna "${userForm.name}" berhasil diperbarui.`);
         setTimeout(() => setActionNotice(null), 4000);
       } else {
         // Mode 2: Tambah Pengguna Baru
-        if (!userForm.password || userForm.password.length < 12) {
-          setFormError('Kata sandi wajib diisi minimal 12 karakter.');
+        if (!userForm.password || userForm.password.length < 6) {
+          setFormError('Kata sandi awal wajib diisi minimal 6 karakter.');
           setSubmitting(false);
           return;
         }
 
-        // Secondary Auth App
+        // Secondary Auth App agar sesi login admin tidak logout
         let secondaryApp = getApps().find((a) => a.name === 'SecondaryAuth');
         if (!secondaryApp) {
           secondaryApp = initializeApp(firebaseConfig, 'SecondaryAuth');
@@ -236,7 +318,7 @@ export default function KelolaPenggunaPage() {
           created_at: new Date().toISOString(),
         });
 
-        setActionNotice(`Pengguna baru "${userForm.name}" berhasil dibuat dan siap login.`);
+        setActionNotice(`Pengguna baru "${userForm.name}" berhasil didaftarkan dan siap login.`);
         setTimeout(() => setActionNotice(null), 4000);
       }
 
@@ -791,177 +873,392 @@ export default function KelolaPenggunaPage() {
         </div>
       </div>
 
-      {/* 7. MODAL TAMBAH / EDIT PENGGUNA (TOUCH-FRIENDLY & BERSIH) */}
+      {/* 7. MODAL TAMBAH / EDIT PENGGUNA (MODERN, NEAT, & DIRECT RESET) */}
       {userModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[92vh] flex flex-col overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full max-h-[92vh] flex flex-col overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150">
             {/* Header Modal */}
-            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0">
-              <strong className="text-slate-900 text-sm font-black uppercase tracking-wider flex items-center gap-2">
-                <Shield size={16} className="text-primary" />
-                {editingUser ? 'Edit Data Pengguna' : 'Tambah Pengguna Baru'}
-              </strong>
+            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-slate-50 to-white shrink-0">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`h-10 w-10 rounded-xl flex items-center justify-center text-white shadow-xs ${
+                    editingUser
+                      ? 'bg-gradient-to-br from-blue-600 to-indigo-700'
+                      : 'bg-gradient-to-br from-primary to-teal-700'
+                  }`}
+                >
+                  {editingUser ? <Edit2 size={18} /> : <UserCheck size={18} />}
+                </div>
+                <div>
+                  <h3 className="text-slate-900 text-sm font-black uppercase tracking-wider">
+                    {editingUser ? 'Edit Data & Akses Pengguna' : 'Tambah Pengguna Baru'}
+                  </h3>
+                  <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                    {editingUser
+                      ? `Kelola hak akses atau reset kata sandi untuk ${editingUser.name}`
+                      : 'Daftarkan akun petugas, supervisor, atau manajemen baru'}
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => setUserModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200/60 transition"
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition"
+                title="Tutup Modal"
               >
-                <X size={17} />
+                <X size={18} />
               </button>
             </div>
 
             {/* Form Scrollable */}
-            <form onSubmit={handleSaveUser} className="p-5 space-y-4 overflow-y-auto flex-1">
+            <form onSubmit={handleSaveUser} className="p-5 sm:p-6 space-y-5 overflow-y-auto flex-1">
+              {/* Alert Error */}
               {formError && (
-                <div className="p-3 bg-red-50 border border-red-200 text-red-900 text-xs rounded-xl flex items-start gap-2 animate-in fade-in">
-                  <AlertCircle size={15} className="text-red-600 shrink-0 mt-0.5" />
+                <div className="p-3.5 bg-red-50 border border-red-200 text-red-900 text-xs rounded-xl flex items-start gap-2.5 animate-in fade-in">
+                  <AlertCircle size={16} className="text-red-600 shrink-0 mt-0.5" />
                   <span className="leading-relaxed font-semibold">{formError}</span>
                 </div>
               )}
 
-              {/* Nama Lengkap */}
-              <div>
-                <label className="label text-xs font-bold text-slate-700 mb-1.5 block">
-                  Nama Lengkap <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    required
-                    placeholder="Contoh: Budi Santoso"
-                    value={userForm.name}
-                    onChange={(e) => setUserForm({ ...userForm, name: e.target.value })}
-                    className="input text-xs pl-8.5 h-11"
-                  />
-                  <User size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              {/* Alert Sukses Reset Kata Sandi */}
+              {resetSuccessNotice && (
+                <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-950 text-xs rounded-xl flex items-center justify-between gap-2.5 animate-in fade-in">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                    <span className="font-bold">{resetSuccessNotice}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyPassword(resetPasswordInput)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-bold text-[10px] hover:bg-emerald-700 transition"
+                  >
+                    {copiedPassword ? <Check size={12} /> : <Copy size={12} />}
+                    {copiedPassword ? 'Tersalin' : 'Salin'}
+                  </button>
+                </div>
+              )}
+
+              {/* SEKSI 1: IDENTITAS PENGGUNA */}
+              <div className="space-y-3.5">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    1. Identitas &amp; Akun Login
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  {/* Nama Lengkap */}
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 mb-1.5 block">
+                      Nama Lengkap <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        required
+                        placeholder="Contoh: Budi Santoso"
+                        value={userForm.name}
+                        onChange={(e) => setUserForm({ ...userForm, name: e.target.value })}
+                        className="input text-xs pl-8.5 h-11"
+                      />
+                      <User size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    </div>
+                  </div>
+
+                  {/* Alamat Email */}
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
+                      <span>Alamat Email <span className="text-red-500">*</span></span>
+                      {editingUser && (
+                        <span className="text-[10px] font-semibold text-slate-400">
+                          (Terkunci)
+                        </span>
+                      )}
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="email"
+                        required
+                        disabled={!!editingUser}
+                        placeholder="Contoh: budi@cekhidran.id"
+                        value={userForm.email}
+                        onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
+                        className="input text-xs pl-8.5 h-11 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
+                      />
+                      <Mail size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Alamat Email */}
-              <div>
-                <label className="label text-xs font-bold text-slate-700 mb-1.5 block">
-                  Alamat Email <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type="email"
-                    required
-                    disabled={!!editingUser}
-                    placeholder="Contoh: budi@cekhidran.id"
-                    value={userForm.email}
-                    onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
-                    className="input text-xs pl-8.5 h-11 disabled:bg-slate-100 disabled:text-slate-500"
-                  />
-                  <Mail size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              {/* SEKSI 2: PERAN & PENUGASAN GUDANG */}
+              <div className="space-y-3.5">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    2. Peran Sistem &amp; Area Penugasan
+                  </span>
                 </div>
-                {editingUser && (
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    *Alamat email akun tidak dapat diubah setelah terdaftar.
-                  </p>
+
+                {/* Dropdown Role */}
+                <div>
+                  <label className="text-xs font-bold text-slate-700 mb-1.5 block">
+                    Peran Sistem (Role) <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={userForm.role}
+                    onChange={(e) => setUserForm({ ...userForm, role: e.target.value as Role })}
+                    className="input text-xs font-semibold h-11"
+                  >
+                    <option value="petugas">Petugas Lapangan (Pemeriksa Hydrant Box)</option>
+                    <option value="supervisor_k3">Supervisor K3 (Monitoring &amp; Verifikasi Temuan)</option>
+                    <option value="admin_sistem">Admin Sistem (Akses Penuh Seluruh Konfigurasi)</option>
+                    <option value="manajemen">Manajemen (Eksekutif Read-Only)</option>
+                  </select>
+                </div>
+
+                {/* Pilihan Gudang Khusus Petugas */}
+                {userForm.role === 'petugas' && (
+                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/90 space-y-2">
+                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                      <Building2 size={13} className="text-primary" />
+                      Penugasan Area Gudang:
+                    </label>
+                    <p className="text-[11px] text-slate-500">
+                      Pilih satu atau beberapa gudang yang menjadi tanggung jawab petugas ini:
+                    </p>
+                    <div className="grid grid-cols-3 gap-2 pt-1">
+                      {warehouses.map((wh) => {
+                        const isChecked = userForm.warehouseIds.includes(wh.id);
+                        return (
+                          <label
+                            key={wh.id}
+                            onClick={() => handleWarehouseCheckbox(wh.id)}
+                            className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border text-xs font-bold cursor-pointer transition-all select-none ${
+                              isChecked
+                                ? 'bg-primary-50 border-primary text-primary-900 shadow-2xs ring-1 ring-primary/30'
+                                : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {}}
+                              className="hidden"
+                            />
+                            <span>Gudang {wh.name}</span>
+                            {isChecked && <Check size={13} className="text-primary shrink-0" />}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
               </div>
 
-              {/* FIELD KATA SANDI (PASSWORD) */}
-              {!editingUser ? (
-                <div>
-                  <label className="label text-xs font-bold text-slate-700 mb-1.5 block">
-                    Kata Sandi (Password) <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      minLength={6}
-                      placeholder="Minimal 6 karakter (contoh: Petugas#12345)"
-                      value={userForm.password}
-                      onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
-                      className="input text-xs pl-8.5 pr-10 h-11"
-                    />
-                    <Lock size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
-                    >
-                      {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                    </button>
-                  </div>
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    Kata sandi awal yang akan digunakan pengguna untuk masuk ke aplikasi.
-                  </p>
+              {/* SEKSI 3: KATA SANDI (ADD vs DIRECT RESET ON EDIT) */}
+              <div className="space-y-3.5">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    3. Keamanan &amp; Kata Sandi
+                  </span>
                 </div>
-              ) : (
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                      <KeyRound size={14} className="text-slate-500" />
-                      Manajemen Kata Sandi
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleSendResetEmail(editingUser.email)}
-                      disabled={resetEmailLoading || resetEmailSent}
-                      className="text-xs font-bold text-primary hover:underline disabled:text-slate-400"
-                    >
-                      {resetEmailLoading ? (
-                        'Mengirim…'
-                      ) : resetEmailSent ? (
-                        '✓ Email Terkirim'
-                      ) : (
-                        'Kirim Email Reset Password'
-                      )}
-                    </button>
-                  </div>
-                  <p className="text-[11px] text-slate-500 leading-relaxed">
-                    Demi keamanan enkripsi, kata sandi pengguna tidak disimpan secara terbuka. Gunakan tombol di atas untuk mengirimkan tautan ganti kata sandi ke email pengguna.
-                  </p>
-                </div>
-              )}
 
-              {/* Peran Sistem (Role) */}
-              <div>
-                <label className="label text-xs font-bold text-slate-700 mb-1.5 block">
-                  Peran Sistem (Role) <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={userForm.role}
-                  onChange={(e) => setUserForm({ ...userForm, role: e.target.value as Role })}
-                  className="input text-xs font-semibold h-11"
-                >
-                  <option value="petugas">Petugas Lapangan (Pemeriksa Hydrant)</option>
-                  <option value="supervisor_k3">Supervisor K3 (Monitoring & Verifikasi)</option>
-                  <option value="admin_sistem">Admin Sistem (Akses Penuh)</option>
-                  <option value="manajemen">Manajemen (Eksekutif Read-Only)</option>
-                </select>
+                {!editingUser ? (
+                  /* MODE TAMBAH PENGGUNA */
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <Lock size={13} className="text-slate-600" />
+                        Kata Sandi Awal <span className="text-red-500">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={generateRandomPassword}
+                        className="text-[11px] font-bold text-primary hover:text-primary-700 flex items-center gap-1 hover:underline transition"
+                      >
+                        <Sparkles size={12} />
+                        Buat Sandi Acak
+                      </button>
+                    </div>
+
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        minLength={6}
+                        placeholder="Minimal 6 karakter (contoh: Petugas#12345)"
+                        value={userForm.password}
+                        onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+                        className="input text-xs pl-8.5 pr-20 h-11 bg-white font-mono"
+                      />
+                      <Lock size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                        {userForm.password && (
+                          <button
+                            type="button"
+                            onClick={() => handleCopyPassword(userForm.password)}
+                            className="p-1.5 text-slate-400 hover:text-slate-700 rounded transition"
+                            title="Salin Kata Sandi"
+                          >
+                            {copiedPassword ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="p-1.5 text-slate-400 hover:text-slate-700 rounded transition"
+                          title={showPassword ? 'Sembunyikan' : 'Lihat Sandi'}
+                        >
+                          {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      Kata sandi ini akan langsung aktif dan dapat digunakan pengguna untuk login pertama kali.
+                    </p>
+                  </div>
+                ) : (
+                  /* MODE EDIT PENGGUNA — RESET KATA SANDI LANGSUNG DI FORM (NO EMAIL) */
+                  <div className="p-4 bg-gradient-to-br from-indigo-50/60 to-slate-50 border border-indigo-200/90 rounded-xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="h-7 w-7 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                          <KeyRound size={14} />
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-slate-900 block">
+                            Reset Kata Sandi Langsung
+                          </span>
+                          <span className="text-[10px] text-slate-500">
+                            Ubah kata sandi akun di sini tanpa mengirim email
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={generateRandomPassword}
+                        className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 hover:underline transition"
+                      >
+                        <Sparkles size={12} />
+                        Acak Sandi
+                      </button>
+                    </div>
+
+                    <div className="space-y-2 pt-1">
+                      <div className="relative">
+                        <input
+                          type={showResetPassword ? 'text' : 'password'}
+                          placeholder="Ketik kata sandi baru (kosongkan jika tidak diubah)"
+                          value={resetPasswordInput}
+                          onChange={(e) => setResetPasswordInput(e.target.value)}
+                          className="input text-xs pl-8.5 pr-20 h-11 bg-white font-mono border-indigo-200 focus:border-indigo-500"
+                        />
+                        <Lock size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-indigo-400" />
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                          {resetPasswordInput && (
+                            <button
+                              type="button"
+                              onClick={() => handleCopyPassword(resetPasswordInput)}
+                              className="p-1.5 text-slate-400 hover:text-slate-700 rounded transition"
+                              title="Salin Kata Sandi"
+                            >
+                              {copiedPassword ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setShowResetPassword(!showResetPassword)}
+                            className="p-1.5 text-slate-400 hover:text-slate-700 rounded transition"
+                            title={showResetPassword ? 'Sembunyikan' : 'Lihat Sandi'}
+                          >
+                            {showResetPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {resetPasswordInput.length > 0 && (
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-[11px] text-indigo-700 font-semibold">
+                            {resetPasswordInput.length >= 6
+                              ? '✓ Panjang sandi memenuhi syarat (min. 6)'
+                              : '⚠️ Kurang dari 6 karakter'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handleDirectResetPassword}
+                            disabled={resetLoading || resetPasswordInput.length < 6}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-bold text-xs transition shadow-2xs"
+                          >
+                            {resetLoading ? (
+                              <>
+                                <Loader2 size={13} className="animate-spin" /> Mereset…
+                              </>
+                            ) : (
+                              <>
+                                <KeyRound size={13} /> Terapkan Sandi Sekarang
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Pilihan Gudang Khusus Petugas */}
-              {userForm.role === 'petugas' && (
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                  <label className="label text-xs font-bold text-slate-700 block">
-                    Penugasan Area Gudang
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {warehouses.map((wh) => (
-                      <label
-                        key={wh.id}
-                        className="inline-flex items-center gap-2 p-2 rounded-lg bg-white border border-slate-200/80 text-xs text-slate-800 cursor-pointer hover:border-slate-300"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={userForm.warehouseIds.includes(wh.id)}
-                          onChange={() => handleWarehouseCheckbox(wh.id)}
-                          className="rounded text-primary focus:ring-primary h-4 w-4"
-                        />
-                        <span className="font-semibold">Gudang {wh.name}</span>
-                      </label>
-                    ))}
-                  </div>
+              {/* SEKSI 4: STATUS AKTIF */}
+              <div className="space-y-3.5">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    4. Status Akun
+                  </span>
                 </div>
-              )}
+
+                <div
+                  onClick={() => setUserForm({ ...userForm, active: !userForm.active })}
+                  className={`p-3.5 rounded-xl border flex items-center justify-between cursor-pointer transition select-none ${
+                    userForm.active
+                      ? 'bg-emerald-50/60 border-emerald-200'
+                      : 'bg-slate-50 border-slate-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div
+                      className={`h-8 w-8 rounded-lg flex items-center justify-center font-bold text-xs ${
+                        userForm.active
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-slate-200 text-slate-600'
+                      }`}
+                    >
+                      <Power size={14} />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-slate-900 block">
+                        Status Akun: {userForm.active ? 'Aktif' : 'Nonaktif'}
+                      </span>
+                      <p className="text-[11px] text-slate-500">
+                        {userForm.active
+                          ? 'Pengguna dapat masuk ke sistem dan menjalankan tugas sesuai peran.'
+                          : 'Akses login pengguna ditangguhkan sementara.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <span
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                      userForm.active
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                        : 'bg-slate-200 text-slate-700 border border-slate-300'
+                    }`}
+                  >
+                    {userForm.active && <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse" />}
+                    {userForm.active ? 'Aktif' : 'Nonaktif'}
+                  </span>
+                </div>
+              </div>
 
               {/* Tombol Aksi Modal */}
-              <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
+              <div className="pt-4 flex items-center justify-end gap-2.5 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setUserModalOpen(false)}
@@ -973,7 +1270,7 @@ export default function KelolaPenggunaPage() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="btn-primary text-xs px-5 py-2.5 font-bold flex items-center gap-2"
+                  className="btn-primary text-xs px-5 py-2.5 font-bold flex items-center gap-2 shadow-xs"
                 >
                   {submitting ? (
                     <>
