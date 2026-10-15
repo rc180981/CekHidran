@@ -959,9 +959,9 @@ export default function KelolaPenggunaPage() {
                         placeholder="Contoh: Budi Santoso"
                         value={userForm.name}
                         onChange={(e) => setUserForm({ ...userForm, name: e.target.value })}
-                        className="input text-xs pl-8.5 h-11"
+                        className="input text-xs !pl-10 h-11"
                       />
-                      <User size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     </div>
                   </div>
 
@@ -983,9 +983,9 @@ export default function KelolaPenggunaPage() {
                         placeholder="Contoh: budi@cekhidran.id"
                         value={userForm.email}
                         onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
-                        className="input text-xs pl-8.5 h-11 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
+                        className="input text-xs !pl-10 h-11 disabled:bg-slate-100 disabled:text-slate-600 disabled:cursor-not-allowed"
                       />
-                      <Mail size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     </div>
                   </div>
                 </div>
@@ -1089,9 +1089,9 @@ export default function KelolaPenggunaPage() {
                         placeholder="Minimal 6 karakter (contoh: Petugas#12345)"
                         value={userForm.password}
                         onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
-                        className="input text-xs pl-8.5 pr-20 h-11 bg-white font-mono"
+                        className="input text-xs !pl-10 !pr-20 h-11 bg-white font-mono"
                       />
-                      <Lock size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                       <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                         {userForm.password && (
                           <button
@@ -1151,9 +1151,9 @@ export default function KelolaPenggunaPage() {
                           placeholder="Ketik kata sandi baru (kosongkan jika tidak diubah)"
                           value={resetPasswordInput}
                           onChange={(e) => setResetPasswordInput(e.target.value)}
-                          className="input text-xs pl-8.5 pr-20 h-11 bg-white font-mono border-indigo-200 focus:border-indigo-500"
+                          className="input text-xs !pl-10 !pr-20 h-11 bg-white font-mono border-indigo-200 focus:border-indigo-500"
                         />
-                        <Lock size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-indigo-400" />
+                        <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-indigo-400 pointer-events-none" />
                         <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                           {resetPasswordInput && (
                             <button
