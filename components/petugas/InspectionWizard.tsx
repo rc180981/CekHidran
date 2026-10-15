@@ -23,6 +23,23 @@ interface PhotoItem {
   takenAt: Date;
 }
 
+function dataUrlToBlob(dataUrl: string): Blob {
+  try {
+    const parts = dataUrl.split(',');
+    const mime = parts[0].match(/:(.*?);/)?.[1] || 'image/png';
+    const byteString = atob(parts[1]);
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    for (let i = 0; i < byteString.length; i++) {
+      ia[i] = byteString.charCodeAt(i);
+    }
+    return new Blob([ab], { type: mime });
+  } catch (e) {
+    console.error('Error converting signature data URL to Blob:', e);
+    return new Blob([], { type: 'image/png' });
+  }
+}
+
 export default function InspectionWizard({
   initialBundle,
   initialQr,
@@ -227,9 +244,8 @@ export default function InspectionWizard({
       const inspectionId = safeUUID();
       const inspectedAt = new Date().toISOString();
 
-      // Convert signature base64 data to Blob
-      const resSig = await fetch(signatureData);
-      const signatureBlob = await resSig.blob();
+      // Convert signature base64 data to Blob in memory (aman tanpa network fetch)
+      const signatureBlob = dataUrlToBlob(signatureData);
 
       // Gabungkan foto umum kondisi dan foto temuan spesifik
       const allPhotos = [...photos.map((p) => ({

@@ -42,8 +42,8 @@ const nextConfig: NextConfig = {
               "font-src 'self' https://fonts.gstatic.com",
               // Gambar: izinkan blob (foto kamera), data URI, Firebase Storage, Google
               "img-src 'self' blob: data: https://*.supabase.co https://*.googleusercontent.com https://*.firebasestorage.app https://*.googleapis.com",
-              // Koneksi: izinkan Firestore, Firebase Realtime/Auth, Google APIs, WebSockets
-              "connect-src 'self' https://*.googleapis.com https://firestore.googleapis.com https://*.firebase.com https://*.firebaseapp.com https://*.firebaseio.com wss://*.firebaseio.com https://*.supabase.co wss://*.supabase.co https://*.google-analytics.com https://*.analytics.google.com",
+              // Koneksi: izinkan Firestore, Firebase Realtime/Auth, Google APIs, WebSockets, data & blob URIs
+              "connect-src 'self' data: blob: https://*.googleapis.com https://firestore.googleapis.com https://*.firebase.com https://*.firebaseapp.com https://*.firebaseio.com wss://*.firebaseio.com https://*.supabase.co wss://*.supabase.co https://*.google-analytics.com https://*.analytics.google.com",
               // Frame: tidak diizinkan untuk iframe luar (cegah clickjacking)
               "frame-ancestors 'none'",
               // Objek (Flash dll): diblokir
