@@ -128,7 +128,16 @@ export default function KelolaPenggunaPage() {
     return { total, petugasCount, supervisorAdminCount, activeCount };
   }, [profiles]);
 
-  const handleToggleActive = async (id: string, current: boolean) => {
+  const handleToggleActive = async (id: string, current: boolean, userEmail?: string) => {
+    if (
+      auth.currentUser &&
+      (auth.currentUser.uid === id ||
+        (userEmail && auth.currentUser.email?.toLowerCase() === userEmail.toLowerCase()))
+    ) {
+      alert('Anda tidak dapat menonaktifkan akun Anda sendiri yang sedang aktif digunakan.');
+      return;
+    }
+
     try {
       await updateDoc(doc(db, 'profiles', id), { active: !current });
       setActionNotice(
@@ -136,9 +145,9 @@ export default function KelolaPenggunaPage() {
       );
       setTimeout(() => setActionNotice(null), 3500);
       fetchData();
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert('Gagal mengubah status pengguna.');
+      alert(e?.message || 'Gagal mengubah status pengguna.');
     }
   };
 
@@ -342,15 +351,58 @@ export default function KelolaPenggunaPage() {
   };
 
   const handleDeleteUser = async (p: any) => {
-    if (confirm(`Yakin ingin menghapus pengguna "${p.name}" (${p.email})?`)) {
+    // 1. Larang menghapus akun sendiri yang sedang aktif digunakan
+    if (
+      auth.currentUser &&
+      (auth.currentUser.uid === p.id ||
+        (p.email && auth.currentUser.email?.toLowerCase() === p.email.toLowerCase()))
+    ) {
+      alert(
+        'Anda tidak dapat menghapus akun Anda sendiri yang sedang aktif digunakan.\n\nJika ingin menghapus akun ini, silakan masuk menggunakan akun Admin Sistem lain.'
+      );
+      return;
+    }
+
+    if (confirm(`Yakin ingin menghapus pengguna "${p.name}" (${p.email}) secara permanen?`)) {
       try {
-        await deleteDoc(doc(db, 'profiles', p.id));
-        setActionNotice(`Pengguna "${p.name}" berhasil dihapus dari sistem.`);
+        let deletedSuccessfully = false;
+
+        // Coba hapus via API server terlebih dahulu (menghapus dokumen Firestore & Firebase Auth)
+        try {
+          const res = await fetch('/api/admin/delete-user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              adminUid: auth.currentUser?.uid,
+              targetUid: p.id,
+            }),
+          });
+
+          const data = await res.json();
+          if (res.ok && data.success) {
+            deletedSuccessfully = true;
+          } else if (data.error && !data.fallbackToClient) {
+            throw new Error(data.error);
+          }
+        } catch (apiErr: any) {
+          console.warn('API delete-user gagal/fallback:', apiErr?.message);
+        }
+
+        // Fallback: Hapus dokumen Firestore langsung dari client SDK jika API belum selesai
+        if (!deletedSuccessfully) {
+          await deleteDoc(doc(db, 'profiles', p.id));
+        }
+
+        setActionNotice(`Pengguna "${p.name}" (${p.email}) berhasil dihapus.`);
         setTimeout(() => setActionNotice(null), 4000);
         fetchData();
-      } catch (err) {
-        console.error(err);
-        alert('Gagal menghapus pengguna.');
+      } catch (err: any) {
+        console.error('Error saat menghapus pengguna:', err);
+        const errMsg =
+          err?.code === 'permission-denied'
+            ? 'Izin ditolak: Hanya Admin Sistem aktif yang berhak menghapus pengguna.'
+            : err?.message || 'Gagal menghapus pengguna.';
+        alert(errMsg);
       }
     }
   };
@@ -596,11 +648,16 @@ export default function KelolaPenggunaPage() {
           const assignedWh = (p.warehouseIds || [])
             .map((id: string) => warehouses.find((w) => w.id === id)?.name || id)
             .join(', ');
+          const isSelf =
+            auth.currentUser?.uid === p.id ||
+            (p.email && auth.currentUser?.email?.toLowerCase() === p.email.toLowerCase());
 
           return (
             <div
               key={p.id}
-              className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-3.5 transition-all hover:border-slate-300"
+              className={`p-4 rounded-2xl bg-white border shadow-2xs space-y-3.5 transition-all ${
+                isSelf ? 'border-primary/40 ring-1 ring-primary/20' : 'border-slate-200/90 hover:border-slate-300'
+              }`}
             >
               {/* Header Kartu: Avatar + Nama + Email + Status */}
               <div className="flex items-start justify-between gap-2.5">
@@ -611,9 +668,16 @@ export default function KelolaPenggunaPage() {
                     {p.name ? p.name.charAt(0).toUpperCase() : 'U'}
                   </div>
                   <div>
-                    <strong className="text-sm font-extrabold text-slate-900 block leading-tight">
-                      {p.name}
-                    </strong>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <strong className="text-sm font-extrabold text-slate-900 leading-tight">
+                        {p.name}
+                      </strong>
+                      {isSelf && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20">
+                          Anda
+                        </span>
+                      )}
+                    </div>
                     <span className="text-xs font-mono text-slate-500 break-all">{p.email}</span>
                   </div>
                 </div>
@@ -670,12 +734,16 @@ export default function KelolaPenggunaPage() {
               <div className="pt-1 flex items-center justify-end gap-2 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => handleToggleActive(p.id, !!p.active)}
+                  disabled={isSelf}
+                  onClick={() => handleToggleActive(p.id, !!p.active, p.email)}
                   className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-all flex items-center gap-1.5 shadow-2xs ${
-                    p.active
+                    isSelf
+                      ? 'opacity-40 cursor-not-allowed text-slate-400 bg-slate-100 border-slate-200'
+                      : p.active
                       ? 'text-amber-800 bg-amber-50/80 border-amber-200 hover:bg-amber-100'
                       : 'text-emerald-800 bg-emerald-50/80 border-emerald-200 hover:bg-emerald-100'
                   }`}
+                  title={isSelf ? 'Tidak dapat menonaktifkan akun sendiri' : undefined}
                 >
                   <Power size={13} />
                   <span>{p.active ? 'Nonaktifkan' : 'Aktifkan'}</span>
@@ -692,9 +760,14 @@ export default function KelolaPenggunaPage() {
 
                 <button
                   type="button"
+                  disabled={isSelf}
                   onClick={() => handleDeleteUser(p)}
-                  className="text-xs font-bold p-2 rounded-xl border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 shadow-2xs flex items-center transition-all"
-                  title="Hapus Pengguna"
+                  className={`text-xs font-bold p-2 rounded-xl border shadow-2xs flex items-center transition-all ${
+                    isSelf
+                      ? 'opacity-30 cursor-not-allowed bg-slate-100 border-slate-200 text-slate-400'
+                      : 'border-red-200 bg-red-50 text-red-600 hover:bg-red-100'
+                  }`}
+                  title={isSelf ? 'Tidak dapat menghapus akun Anda sendiri yang sedang aktif' : 'Hapus Pengguna'}
                 >
                   <Trash2 size={14} />
                 </button>
@@ -742,11 +815,16 @@ export default function KelolaPenggunaPage() {
                   const assignedWh = (p.warehouseIds || [])
                     .map((id: string) => warehouses.find((w) => w.id === id)?.name || id)
                     .join(', ');
+                  const isSelf =
+                    auth.currentUser?.uid === p.id ||
+                    (p.email && auth.currentUser?.email?.toLowerCase() === p.email.toLowerCase());
 
                   return (
                     <tr
                       key={p.id}
-                      className="hover:bg-slate-50/70 transition-colors group"
+                      className={`hover:bg-slate-50/70 transition-colors group ${
+                        isSelf ? 'bg-primary/5/30' : ''
+                      }`}
                     >
                       {/* Kolom 1: Avatar + Nama + Email Terpadu */}
                       <td className="py-3.5 px-6">
@@ -757,9 +835,16 @@ export default function KelolaPenggunaPage() {
                             {p.name ? p.name.charAt(0).toUpperCase() : 'U'}
                           </div>
                           <div>
-                            <strong className="font-bold text-slate-900 text-xs block leading-snug">
-                              {p.name}
-                            </strong>
+                            <div className="flex items-center gap-1.5">
+                              <strong className="font-bold text-slate-900 text-xs leading-snug">
+                                {p.name}
+                              </strong>
+                              {isSelf && (
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                                  Anda
+                                </span>
+                              )}
+                            </div>
                             <span className="font-mono text-[11px] text-slate-500 block">
                               {p.email}
                             </span>
@@ -825,12 +910,16 @@ export default function KelolaPenggunaPage() {
                           {/* Tombol Toggle Status */}
                           <button
                             type="button"
-                            onClick={() => handleToggleActive(p.id, !!p.active)}
+                            disabled={isSelf}
+                            onClick={() => handleToggleActive(p.id, !!p.active, p.email)}
                             className={`text-[11px] font-bold px-2.5 py-1.5 rounded-lg border transition-all ${
-                              p.active
+                              isSelf
+                                ? 'opacity-40 cursor-not-allowed text-slate-400 bg-slate-100 border-slate-200'
+                                : p.active
                                 ? 'text-amber-800 bg-amber-50/70 border-amber-200/80 hover:bg-amber-100'
                                 : 'text-emerald-800 bg-emerald-50/70 border-emerald-200/80 hover:bg-emerald-100'
                             }`}
+                            title={isSelf ? 'Tidak dapat menonaktifkan akun sendiri' : undefined}
                           >
                             {p.active ? 'Nonaktifkan' : 'Aktifkan'}
                           </button>
@@ -848,9 +937,14 @@ export default function KelolaPenggunaPage() {
                           {/* Tombol Hapus */}
                           <button
                             type="button"
+                            disabled={isSelf}
                             onClick={() => handleDeleteUser(p)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 border border-slate-200/80 hover:border-red-200 transition-all shadow-2xs"
-                            title="Hapus Pengguna"
+                            className={`p-1.5 rounded-lg border transition-all shadow-2xs ${
+                              isSelf
+                                ? 'opacity-30 cursor-not-allowed bg-slate-100 border-slate-200 text-slate-400'
+                                : 'text-slate-400 hover:text-red-600 hover:bg-red-50 border-slate-200/80 hover:border-red-200'
+                            }`}
+                            title={isSelf ? 'Tidak dapat menghapus akun Anda sendiri yang sedang aktif' : 'Hapus Pengguna'}
                           >
                             <Trash2 size={14} />
                           </button>

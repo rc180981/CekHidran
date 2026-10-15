@@ -17,18 +17,20 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data;
     }
 
-    // Cek apakah pengguna memiliki Role Admin Sistem
+    // Cek apakah pengguna memiliki Role Admin Sistem aktif
     function isAdmin() {
       return isAuthenticated() && 
-        currentUserProfile().role == 'admin_sistem' && 
-        currentUserProfile().active == true;
+        exists(/databases/$(database)/documents/profiles/$(request.auth.uid)) &&
+        currentUserProfile().get('role', '') == 'admin_sistem' && 
+        currentUserProfile().get('active', false) == true;
     }
 
-    // Cek apakah pengguna memiliki Role Supervisor K3 atau Admin
+    // Cek apakah pengguna memiliki Role Supervisor K3 atau Admin aktif
     function isSupervisorOrAdmin() {
       return isAuthenticated() && 
-        (currentUserProfile().role == 'admin_sistem' || currentUserProfile().role == 'supervisor_k3') && 
-        currentUserProfile().active == true;
+        exists(/databases/$(database)/documents/profiles/$(request.auth.uid)) &&
+        (currentUserProfile().get('role', '') == 'admin_sistem' || currentUserProfile().get('role', '') == 'supervisor_k3') && 
+        currentUserProfile().get('active', false) == true;
     }
 
     // ==========================================
