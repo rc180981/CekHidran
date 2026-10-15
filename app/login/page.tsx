@@ -45,10 +45,18 @@ export default async function LoginPage({
         {/* Footer info */}
         <div className="mt-6 text-center">
           <p className="text-[11px] sm:text-xs font-semibold text-slate-500">
-            Akses Terbatas Internal K3 &bull; Versi 1.2.0 (Pembaruan 14 Okt 2026)
+            Akses Terbatas Internal K3 &bull; Versi 1.2.0
           </p>
         </div>
       </div>
+
+      {/* Footnote di kiri bawah layar */}
+      <aside
+        aria-hidden="true"
+        className="fixed bottom-3 left-3 sm:bottom-4 sm:left-4 z-10 select-none pointer-events-none text-[11px] sm:text-xs font-mono font-medium tracking-widest text-slate-400/40 drop-shadow-[0_1px_1px_rgba(0,0,0,0.25)]"
+      >
+        RCA26
+      </aside>
     </main>
   );
 }

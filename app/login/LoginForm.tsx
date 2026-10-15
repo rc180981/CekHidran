@@ -64,7 +64,7 @@ export default function LoginForm({ next }: { next?: string }) {
       {/* Input Email */}
       <div>
         <label htmlFor="email" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-          Email Pengguna
+          Email Account
         </label>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
