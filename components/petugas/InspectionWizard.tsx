@@ -330,7 +330,7 @@ export default function InspectionWizard({
       if (reinspectionReq && navigator.onLine) {
         try {
           await setDoc(
-            doc(db, 'reinspection_requests', matchedHydrant.id),
+            doc(db, 'inspections', `reinspect_${matchedHydrant.id}`),
             {
               status: 'completed',
               completed_at: inspectedAt,

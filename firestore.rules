@@ -112,5 +112,14 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
+
+    // ==========================================
+    // KOLEKSI: REINSPECTION_REQUESTS (Permintaan Re-inspeksi)
+    // ==========================================
+    match /reinspection_requests/{requestId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isSupervisorOrAdmin() || (isAuthenticated() && currentUserProfile().active == true);
+      allow delete: if isAdmin();
+    }
   }
 }

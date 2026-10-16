@@ -151,7 +151,7 @@ async function doSync(): Promise<SyncResult> {
       // 5. Tandai permintaan re-inspeksi (jika ada) sebagai completed
       try {
         await setDoc(
-          doc(db, 'reinspection_requests', it.hydrantId),
+          doc(db, 'inspections', `reinspect_${it.hydrantId}`),
           {
             status: 'completed',
             completed_at: it.inspectedAt || new Date().toISOString(),

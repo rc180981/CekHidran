@@ -54,14 +54,13 @@ export default function RiwayatChecksheetPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [wSnap, hSnap, iSnap, insSnap, pSnap, freqSnap, reSnap] = await Promise.all([
+        const [wSnap, hSnap, iSnap, insSnap, pSnap, freqSnap] = await Promise.all([
           getDocs(collection(db, 'warehouses')),
           getDocs(collection(db, 'hydrants')),
           getDocs(collection(db, 'checklist_items')),
           getDocs(collection(db, 'inspections')),
           getDocs(collection(db, 'profiles')),
           getDoc(doc(db, 'app_settings', 'inspection_frequency')),
-          getDocs(collection(db, 'reinspection_requests')),
         ]);
 
         if (freqSnap.exists() && freqSnap.data()?.value === 'bulanan') {
@@ -89,18 +88,23 @@ export default function RiwayatChecksheetPage() {
         setItems(itList);
 
         const inList: any[] = [];
-        insSnap.forEach((d) => inList.push(d.data()));
+        const reList: any[] = [];
+        insSnap.forEach((d) => {
+          const data = d.data();
+          if (data.is_reinspection_request) {
+            reList.push({ id: d.id, ...data });
+          } else {
+            inList.push({ id: d.id, ...data });
+          }
+        });
         setInspections(inList);
+        setReinspections(reList);
 
         const prList: any[] = [];
         pSnap.forEach((d) => prList.push(d.data()));
         setProfiles(prList);
-
-        const reList: any[] = [];
-        reSnap.forEach((d) => reList.push({ id: d.id, ...d.data() }));
-        setReinspections(reList);
       } catch (err) {
-        console.error(err);
+        console.error('Error loading checksheet data:', err);
       } finally {
         setLoading(false);
       }
@@ -169,8 +173,10 @@ export default function RiwayatChecksheetPage() {
     }
     setSubmittingReinspection(true);
     try {
+      const reqId = `reinspect_${activeHydrant.id}`;
       const reqData = {
-        id: activeHydrant.id,
+        id: reqId,
+        is_reinspection_request: true,
         hydrant_id: activeHydrant.id,
         hydrant_number: activeHydrant.number,
         warehouse_name: activeHydrant.warehouse_name,
@@ -182,7 +188,7 @@ export default function RiwayatChecksheetPage() {
         requested_at: new Date().toISOString(),
         reason: reinspectReason.trim(),
       };
-      await setDoc(doc(db, 'reinspection_requests', activeHydrant.id), reqData, { merge: true });
+      await setDoc(doc(db, 'inspections', reqId), reqData, { merge: true });
       setReinspections((prev) => [
         ...prev.filter((r) => r.hydrant_id !== activeHydrant.id),
         reqData,
@@ -202,7 +208,7 @@ export default function RiwayatChecksheetPage() {
     if (!confirm(`Batalkan permintaan pemeriksaan ulang untuk titik ${activeHydrant.number}?`)) return;
     try {
       await setDoc(
-        doc(db, 'reinspection_requests', activeHydrant.id),
+        doc(db, 'inspections', `reinspect_${activeHydrant.id}`),
         { status: 'cancelled' },
         { merge: true }
       );

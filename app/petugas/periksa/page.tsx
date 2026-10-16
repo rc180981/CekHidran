@@ -102,40 +102,34 @@ function PeriksaContent() {
         }
       } catch {}
 
-      // Ambil inspeksi periode berjalan untuk validasi status periksa 1x
+      // Ambil inspeksi periode berjalan dan permintaan re-inspeksi dari koleksi inspections
       const periodKey = frequency === 'bulanan' ? jakartaDate().slice(0, 7) : jakartaDate();
       const recentInspections: Record<string, { inspectedAt: string; inspectorName: string }> = {};
+      const reinspections: Record<string, ReinspectionRequest> = {};
+
       try {
         const insSnap = await getDocs(collection(db, 'inspections'));
         insSnap.forEach((d) => {
           const data = d.data();
-          const dDate = (data.inspected_at || '').slice(0, 10);
-          const matches = frequency === 'bulanan'
-            ? dDate.slice(0, 7) === periodKey
-            : dDate === periodKey;
-          if (matches && data.hydrant_id) {
-            recentInspections[data.hydrant_id] = {
-              inspectedAt: data.inspected_at,
-              inspectorName: data.user_name || data.userName || 'Petugas',
-            };
+          if (data.is_reinspection_request) {
+            if (data.status === 'pending' && data.hydrant_id) {
+              reinspections[data.hydrant_id] = data as ReinspectionRequest;
+            }
+          } else {
+            const dDate = (data.inspected_at || '').slice(0, 10);
+            const matches = frequency === 'bulanan'
+              ? dDate.slice(0, 7) === periodKey
+              : dDate === periodKey;
+            if (matches && data.hydrant_id) {
+              recentInspections[data.hydrant_id] = {
+                inspectedAt: data.inspected_at,
+                inspectorName: data.user_name || data.userName || 'Petugas',
+              };
+            }
           }
         });
       } catch (e) {
         console.warn('Gagal memuat status inspeksi terkini:', e);
-      }
-
-      // Ambil permintaan re-inspeksi yang pending dari Admin / Supervisor K3
-      const reinspections: Record<string, ReinspectionRequest> = {};
-      try {
-        const reSnap = await getDocs(collection(db, 'reinspection_requests'));
-        reSnap.forEach((d) => {
-          const data = d.data() as ReinspectionRequest;
-          if (data.status === 'pending' && data.hydrant_id) {
-            reinspections[data.hydrant_id] = data;
-          }
-        });
-      } catch (e) {
-        console.warn('Gagal memuat permintaan reinspeksi:', e);
       }
 
       const newBundle: PetugasBundle = {

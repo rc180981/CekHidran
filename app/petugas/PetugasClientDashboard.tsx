@@ -90,32 +90,26 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
     try {
       const snap = await getDocs(collection(db, 'inspections'));
       const list: any[] = [];
+      const reMap: Record<string, any> = {};
+
       snap.forEach((doc) => {
         const data = doc.data();
-        const insDate = (data.inspected_at || '').slice(0, 10);
-        const matches = isMonthly
-          ? insDate.slice(0, 7) === currentPeriodKey
-          : insDate === currentPeriodKey;
-        if (matches) {
-          list.push({ ...data, id: doc.id });
-        }
-      });
-      setTodayInspections(list);
-
-      // Ambil permintaan re-inspeksi yang pending
-      try {
-        const reSnap = await getDocs(collection(db, 'reinspection_requests'));
-        const reMap: Record<string, any> = {};
-        reSnap.forEach((doc) => {
-          const data = doc.data();
+        if (data.is_reinspection_request) {
           if (data.status === 'pending' && data.hydrant_id) {
             reMap[data.hydrant_id] = data;
           }
-        });
-        setReinspections(reMap);
-      } catch (reErr) {
-        console.warn('Gagal memuat reinspections:', reErr);
-      }
+        } else {
+          const insDate = (data.inspected_at || '').slice(0, 10);
+          const matches = isMonthly
+            ? insDate.slice(0, 7) === currentPeriodKey
+            : insDate === currentPeriodKey;
+          if (matches) {
+            list.push({ ...data, id: doc.id });
+          }
+        }
+      });
+      setTodayInspections(list);
+      setReinspections(reMap);
     } catch (e) {
       console.error('Error fetching inspections:', e);
     }
