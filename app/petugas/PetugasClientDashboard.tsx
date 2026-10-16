@@ -342,7 +342,7 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
           <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
             <span className="flex items-center gap-1.5">
               <Building2 size={13} className="text-primary" />
-              <span>Filter Tampilan Gudang:</span>
+              <span>Area Gudang ({assignedWarehouses.length} Gudang Ditugaskan):</span>
             </span>
             {selectedWarehouseFilter !== 'all' && (
               <button

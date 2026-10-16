@@ -55,7 +55,7 @@ export default function KelolaPenggunaPage() {
     email: '',
     password: '',
     role: 'petugas' as Role,
-    warehouseIds: ['wh2', 'wh3', 'wh4'],
+    warehouseIds: ['wh2'],
     active: true,
   });
 
@@ -181,7 +181,7 @@ export default function KelolaPenggunaPage() {
       email: '',
       password: '',
       role: 'petugas',
-      warehouseIds: ['wh2', 'wh3', 'wh4'],
+      warehouseIds: ['wh2'],
       active: true,
     });
     setResetPasswordInput('');
@@ -198,7 +198,7 @@ export default function KelolaPenggunaPage() {
       email: p.email,
       password: '',
       role: p.role,
-      warehouseIds: ['wh2', 'wh3', 'wh4'],
+      warehouseIds: p.warehouseIds || ['wh2'],
       active: !!p.active,
     });
     setResetPasswordInput('');
@@ -252,6 +252,12 @@ export default function KelolaPenggunaPage() {
     setFormError(null);
     setSubmitting(true);
 
+    if (userForm.role === 'petugas' && (!userForm.warehouseIds || userForm.warehouseIds.length === 0)) {
+      setFormError('Pilih minimal 1 area gudang untuk penugasan petugas lapangan.');
+      setSubmitting(false);
+      return;
+    }
+
     try {
       if (editingUser) {
         // Mode 1: Edit Data Pengguna
@@ -283,7 +289,7 @@ export default function KelolaPenggunaPage() {
           name: userForm.name.trim(),
           email: userForm.email.trim(),
           role: userForm.role,
-          warehouseIds: ['wh2', 'wh3', 'wh4'],
+          warehouseIds: userForm.role === 'petugas' ? userForm.warehouseIds : ['wh2', 'wh3', 'wh4'],
           active: userForm.active,
           updated_at: new Date().toISOString(),
         });
@@ -355,7 +361,7 @@ export default function KelolaPenggunaPage() {
             name: userForm.name.trim(),
             email: userForm.email.trim(),
             role: userForm.role,
-            warehouseIds: ['wh2', 'wh3', 'wh4'],
+            warehouseIds: userForm.role === 'petugas' ? userForm.warehouseIds : ['wh2', 'wh3', 'wh4'],
             active: true,
             created_at: new Date().toISOString(),
             ...(isRecovered ? { recovered_at: new Date().toISOString() } : {}),
@@ -447,6 +453,29 @@ export default function KelolaPenggunaPage() {
     }
   };
 
+  const handleWarehouseCheckbox = (whId: string) => {
+    setUserForm((prev) => {
+      const current = prev.warehouseIds || [];
+      const exists = current.includes(whId);
+      if (exists) {
+        return { ...prev, warehouseIds: current.filter((id) => id !== whId) };
+      } else {
+        return { ...prev, warehouseIds: [...current, whId] };
+      }
+    });
+  };
+
+  const handleToggleSelectAllWarehouses = () => {
+    setUserForm((prev) => {
+      const allIds = warehouses.map((w) => w.id);
+      const current = prev.warehouseIds || [];
+      const isAllSelected = allIds.length > 0 && allIds.every((id) => current.includes(id));
+      return {
+        ...prev,
+        warehouseIds: isAllSelected ? [] : allIds,
+      };
+    });
+  };
 
   // Helper Warna Avatar dan Badge Role
   const getRoleVisual = (role: Role) => {
@@ -744,10 +773,18 @@ export default function KelolaPenggunaPage() {
 
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                    Cakupan Area:
+                    Penugasan Gudang:
                   </span>
-                  <div className="font-semibold text-slate-700 text-xs truncate">
-                    Semua Area (WH2, WH3, WH4)
+                  <div className="font-semibold text-slate-800 text-xs truncate">
+                    {p.role === 'petugas' ? (
+                      assignedWh ? (
+                        <span className="text-teal-800 font-bold">Gudang {assignedWh}</span>
+                      ) : (
+                        <span className="text-red-500 font-bold">Belum ditugaskan</span>
+                      )
+                    ) : (
+                      <span className="text-slate-500 font-medium">Semua Gudang</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -826,7 +863,7 @@ export default function KelolaPenggunaPage() {
                 <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-black uppercase tracking-wider text-slate-500">
                   <th className="py-3.5 px-6">Pengguna &amp; Email</th>
                   <th className="py-3.5 px-4">Role Sistem</th>
-                  <th className="py-3.5 px-4">Cakupan Area</th>
+                  <th className="py-3.5 px-4">Penugasan Area Gudang</th>
                   <th className="py-3.5 px-4">Status Akun</th>
                   <th className="py-3.5 px-6 text-right">Tindakan</th>
                 </tr>
@@ -834,6 +871,9 @@ export default function KelolaPenggunaPage() {
               <tbody className="divide-y divide-slate-100 text-xs">
                 {filteredProfiles.map((p) => {
                   const roleVisual = getRoleVisual(p.role as Role);
+                  const assignedWh = (p.warehouseIds || [])
+                    .map((id: string) => warehouses.find((w) => w.id === id)?.name || id)
+                    .join(', ');
                   const isSelf =
                     auth.currentUser?.uid === p.id ||
                     (p.email && auth.currentUser?.email?.toLowerCase() === p.email.toLowerCase());
@@ -881,12 +921,28 @@ export default function KelolaPenggunaPage() {
                         </span>
                       </td>
 
-                      {/* Kolom 3: Cakupan Area Gudang */}
+                      {/* Kolom 3: Penugasan Gudang */}
                       <td className="py-3.5 px-4">
-                        <span className="text-slate-600 font-medium text-[11px] inline-flex items-center gap-1.5">
-                          <Building2 size={13} className="text-slate-400 shrink-0" />
-                          <span>Semua Area (WH2, WH3, WH4)</span>
-                        </span>
+                        {p.role === 'petugas' ? (
+                          assignedWh ? (
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {assignedWh.split(', ').map((wName: string) => (
+                                <span
+                                  key={wName}
+                                  className="px-2 py-0.5 rounded-md bg-teal-50 border border-teal-200/80 text-teal-800 text-[10px] font-bold"
+                                >
+                                  Gudang {wName}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-[11px] font-bold text-red-500">Belum ditugaskan</span>
+                          )
+                        ) : (
+                          <span className="text-slate-500 font-medium text-[11px]">
+                            Semua Gudang (WH2, WH3, WH4)
+                          </span>
+                        )}
                       </td>
 
                       {/* Kolom 4: Status Akun */}
@@ -1088,11 +1144,11 @@ export default function KelolaPenggunaPage() {
                 </div>
               </div>
 
-              {/* SEKSI 2: PERAN SISTEM */}
+              {/* SEKSI 2: PERAN & PENUGASAN GUDANG */}
               <div className="space-y-3.5">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
                   <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    2. Peran Sistem
+                    2. Peran Sistem &amp; Area Penugasan
                   </span>
                 </div>
 
@@ -1112,6 +1168,60 @@ export default function KelolaPenggunaPage() {
                     <option value="manajemen">Manajemen (Eksekutif Read-Only)</option>
                   </select>
                 </div>
+
+                {/* Pilihan Gudang Khusus Petugas */}
+                {userForm.role === 'petugas' && (
+                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/90 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <Building2 size={14} className="text-primary" />
+                        <span>Penugasan Area Gudang</span>
+                        <span className="text-[11px] font-normal text-slate-500">
+                          ({userForm.warehouseIds?.length || 0} dipilih)
+                        </span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleToggleSelectAllWarehouses}
+                        className="text-[11px] font-bold text-primary hover:text-primary-700 hover:underline transition"
+                      >
+                        {warehouses.length > 0 &&
+                        warehouses.every((w) => (userForm.warehouseIds || []).includes(w.id))
+                          ? 'Batalkan Semua'
+                          : 'Pilih Semua (3 WH)'}
+                      </button>
+                    </div>
+
+                    <p className="text-[11px] text-slate-500 leading-snug">
+                      Pilih satu atau lebih gudang yang menjadi area tugas patroli petugas ini:
+                    </p>
+
+                    <div className="grid grid-cols-3 gap-2 pt-0.5">
+                      {warehouses.map((wh) => {
+                        const isChecked = (userForm.warehouseIds || []).includes(wh.id);
+                        return (
+                          <button
+                            type="button"
+                            key={wh.id}
+                            onClick={() => handleWarehouseCheckbox(wh.id)}
+                            className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border text-xs font-bold transition-all select-none ${
+                              isChecked
+                                ? 'bg-primary-50 border-primary text-primary-900 shadow-2xs ring-2 ring-primary/20'
+                                : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50/80'
+                            }`}
+                          >
+                            <span>Gudang {wh.name}</span>
+                            {isChecked ? (
+                              <Check size={14} className="text-primary shrink-0 stroke-[3]" />
+                            ) : (
+                              <span className="h-3.5 w-3.5 rounded border border-slate-300 shrink-0" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* SEKSI 3: KATA SANDI (ADD vs DIRECT RESET ON EDIT) */}

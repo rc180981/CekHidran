@@ -49,20 +49,22 @@ export default function PetugasPage() {
           for (const doc of hSnap.docs) {
             const data = doc.data();
             const docWh = (data.warehouse_id || '').toLowerCase();
-            const qrVal = data.qr_code || '';
-            const hash = qrVal ? await sha256Hex(qrVal) : '';
-            const mappedWhName = data.warehouse_name || warehouseMap.get(docWh) || docWh.toUpperCase();
-            hydrantsList.push({
-              id: data.id,
-              number: data.number,
-              type: data.type || 'Box Hydrant',
-              location_name: data.location_name,
-              location_type: data.location_type || 'indoor',
-              warehouse_id: data.warehouse_id,
-              warehouse_name: mappedWhName,
-              qr_hash: hash,
-              qr_code: qrVal,
-            });
+            if (userWh.length === 0 || userWh.includes(docWh)) {
+              const qrVal = data.qr_code || '';
+              const hash = qrVal ? await sha256Hex(qrVal) : '';
+              const mappedWhName = data.warehouse_name || warehouseMap.get(docWh) || docWh.toUpperCase();
+              hydrantsList.push({
+                id: data.id,
+                number: data.number,
+                type: data.type || 'Box Hydrant',
+                location_name: data.location_name,
+                location_type: data.location_type || 'indoor',
+                warehouse_id: data.warehouse_id,
+                warehouse_name: mappedWhName,
+                qr_hash: hash,
+                qr_code: qrVal,
+              });
+            }
           }
 
           // Ambil items
@@ -73,7 +75,10 @@ export default function PetugasPage() {
           });
           itemsList.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
-          const assignedNames = Array.from(new Set(hydrantsList.map((h) => h.warehouse_name).filter(Boolean)));
+          const rawWhIds = profile.warehouseIds || [];
+          const assignedNames = rawWhIds.length > 0
+            ? rawWhIds.map((id: string) => warehouseMap.get(id.toLowerCase()) || id.toUpperCase())
+            : Array.from(new Set(hydrantsList.map((h) => h.warehouse_name).filter(Boolean)));
 
           // Ambil frekuensi pemeriksaan aktif dari pengaturan Firestore
           let frequency: 'harian' | 'bulanan' = 'harian';
