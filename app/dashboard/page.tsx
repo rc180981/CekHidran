@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/lib/firebase/auth-context';
 import { useEffect, useState } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/client';
 import { currentPeriod, jakartaDate, addDays, formatDate } from '@/lib/period';
 import { StatCard, Card, ProgressBar, StatusBadge, LocationTag } from '@/components/ui';
@@ -48,14 +48,22 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [wSnap, hSnap, iSnap, fSnap, itSnap, pSnap] = await Promise.all([
+        const [wSnap, hSnap, iSnap, fSnap, itSnap, pSnap, freqSnap] = await Promise.all([
           getDocs(collection(db, 'warehouses')),
           getDocs(collection(db, 'hydrants')),
           getDocs(collection(db, 'inspections')),
           getDocs(collection(db, 'findings')),
           getDocs(collection(db, 'checklist_items')),
           getDocs(collection(db, 'profiles')),
+          getDoc(doc(db, 'app_settings', 'inspection_frequency')),
         ]);
+
+        if (freqSnap.exists()) {
+          const fVal = freqSnap.data()?.value;
+          if (fVal === 'bulanan' || fVal === 'harian') {
+            setFreq(fVal);
+          }
+        }
 
         const wList: any[] = [];
         wSnap.forEach((d) => wList.push(d.data()));
@@ -95,11 +103,16 @@ export default function DashboardPage() {
 
   const period = currentPeriod(freq);
   const totalPoints = hydrants.length;
-  
-  // Pemeriksaan periode ini (harian berdasarkan tanggal hari ini)
+  const isMonthly = freq === 'bulanan';
   const todayStr = jakartaDate();
-  const todayInspections = inspections.filter((i) => (i.inspected_at || '').slice(0, 10) === todayStr);
-  const inspectedHydrantMap = new Map(todayInspections.map((i) => [i.hydrant_id, i]));
+  const currentMonthStr = todayStr.slice(0, 7);
+
+  // Pemeriksaan periode ini (berdasarkan frekuensi: Harian atau Bulanan)
+  const periodInspections = inspections.filter((i) => {
+    const insDate = (i.inspected_at || '').slice(0, 10);
+    return isMonthly ? insDate.slice(0, 7) === currentMonthStr : insDate === todayStr;
+  });
+  const inspectedHydrantMap = new Map(periodInspections.map((i) => [i.hydrant_id, i]));
 
   const checkedHydrants = hydrants.filter((h) => inspectedHydrantMap.has(h.id));
   const uncheckedHydrants = hydrants.filter((h) => !inspectedHydrantMap.has(h.id));
@@ -200,7 +213,7 @@ export default function DashboardPage() {
         <StatCard
           label="Titik Sudah Dicek"
           value={`${checkedCount} / ${totalPoints}`}
-          hint={`${totalPoints > 0 ? Math.round((checkedCount / totalPoints) * 100) : 0}% terlaksana hari ini`}
+          hint={`${totalPoints > 0 ? Math.round((checkedCount / totalPoints) * 100) : 0}% terlaksana ${period.short}`}
           tone="green"
           icon={<CheckCircle2 size={24} />}
           onClick={() => setDetailModal('checked')}
@@ -603,7 +616,7 @@ export default function DashboardPage() {
                   {detailModal === 'compliance' && 'Riwayat Kepatuhan Pemeriksaan (7 Hari)'}
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  {detailModal === 'checked' && `${checkedCount} titik selesai diperiksa pada tanggal hari ini (${todayStr})`}
+                  {detailModal === 'checked' && `${checkedCount} titik selesai diperiksa pada periode ${period.label}`}
                   {detailModal === 'unchecked' && `${uncheckedCount} titik masih memerlukan pemeriksaan segera`}
                   {detailModal === 'findings' && `${openFindingsCount} temuan dengan status Terbuka atau Dalam Perbaikan`}
                   {detailModal === 'compliance' && 'Persentase penyelesaian pemeriksaan per hari selama satu minggu terakhir'}
@@ -633,14 +646,14 @@ export default function DashboardPage() {
                         </div>
                         <div className="text-right">
                           <span className="inline-block px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 font-semibold border border-emerald-200">
-                            ✓ Diperiksa {ins?.inspected_at ? new Date(ins.inspected_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : ''}
+                            ✓ Diperiksa {ins?.inspected_at ? (isMonthly ? formatDate(ins.inspected_at, 'short') + ' ' : '') + new Date(ins.inspected_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : ''}
                           </span>
                         </div>
                       </div>
                     );
                   })}
                   {checkedHydrants.length === 0 && (
-                    <p className="text-center py-6 text-sm text-slate-500">Belum ada titik yang diperiksa hari ini.</p>
+                    <p className="text-center py-6 text-sm text-slate-500">Belum ada titik yang diperiksa pada periode {period.short}.</p>
                   )}
                 </div>
               )}
@@ -660,7 +673,7 @@ export default function DashboardPage() {
                   ))}
                   {uncheckedHydrants.length === 0 && (
                     <p className="text-center py-6 text-sm text-emerald-700 font-semibold">
-                      🎉 Luar biasa! Seluruh {totalPoints} titik hydrant telah selesai diperiksa hari ini!
+                      🎉 Luar biasa! Seluruh {totalPoints} titik hydrant telah selesai diperiksa {period.short}!
                     </p>
                   )}
                 </div>
@@ -908,17 +921,18 @@ export default function DashboardPage() {
                       {hasDefect
                         ? 'Memiliki Temuan Kerusakan K3'
                         : isChecked
-                        ? 'Sudah Diperiksa Hari Ini'
-                        : 'Belum Diperiksa Hari Ini'}
+                        ? `Sudah Diperiksa ${isMonthly ? 'Bulan Ini' : 'Hari Ini'}`
+                        : `Belum Diperiksa ${isMonthly ? 'Bulan Ini' : 'Hari Ini'}`}
                     </strong>
                     {isChecked ? (
                       <p className="text-slate-700">
                         Diperiksa oleh <span className="font-semibold text-slate-900">{ins.inspector_name || 'Petugas'}</span> pada{' '}
+                        {isMonthly ? `${formatDate(ins.inspected_at, 'short')} pukul ` : ''}
                         {new Date(ins.inspected_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB.
                       </p>
                     ) : (
                       <p className="text-amber-800">
-                        Titik hydrant ini belum mendapat checklist verifikasi fisik hari ini ({jakartaDate()}).
+                        Titik hydrant ini belum mendapat checklist verifikasi fisik periode {period.short} ({isMonthly ? period.label : todayStr}).
                       </p>
                     )}
                   </div>

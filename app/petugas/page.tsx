@@ -3,7 +3,7 @@
 import { useAuth } from '@/lib/firebase/auth-context';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/client';
 import PetugasClientDashboard from './PetugasClientDashboard';
 import type { PetugasBundle, CachedHydrant, ChecklistItem } from '@/lib/types';
@@ -80,6 +80,17 @@ export default function PetugasPage() {
             ? rawWhIds.map((id: string) => warehouseMap.get(id.toLowerCase()) || id.toUpperCase())
             : Array.from(new Set(hydrantsList.map((h) => h.warehouse_name).filter(Boolean)));
 
+          // Ambil frekuensi pemeriksaan aktif dari pengaturan Firestore
+          let frequency: 'harian' | 'bulanan' = 'harian';
+          try {
+            const freqSnap = await getDoc(doc(db, 'app_settings', 'inspection_frequency'));
+            if (freqSnap.exists() && freqSnap.data()?.value === 'bulanan') {
+              frequency = 'bulanan';
+            }
+          } catch (freqErr) {
+            console.warn('Gagal memuat frekuensi pemeriksaan:', freqErr);
+          }
+
           const newB = {
             user: {
               id: profile.id,
@@ -90,7 +101,7 @@ export default function PetugasPage() {
             },
             hydrants: hydrantsList,
             items: itemsList,
-            frequency: 'harian' as const,
+            frequency,
             fetchedAt: new Date().toISOString(),
           };
           setBundle(newB);

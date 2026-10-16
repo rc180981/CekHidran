@@ -3,7 +3,7 @@
 import { useAuth } from '@/lib/firebase/auth-context';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/client';
 import InspectionWizard from '@/components/petugas/InspectionWizard';
 import type { PetugasBundle, CachedHydrant, ChecklistItem } from '@/lib/types';
@@ -93,6 +93,14 @@ function PeriksaContent() {
       });
       itemsList.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
+      let frequency: 'harian' | 'bulanan' = 'harian';
+      try {
+        const freqSnap = await getDoc(doc(db, 'app_settings', 'inspection_frequency'));
+        if (freqSnap.exists() && freqSnap.data()?.value === 'bulanan') {
+          frequency = 'bulanan';
+        }
+      } catch {}
+
       const newBundle: PetugasBundle = {
         user: {
           id: profile?.id || 'petugas',
@@ -102,7 +110,7 @@ function PeriksaContent() {
         },
         hydrants: hydrantsList,
         items: itemsList,
-        frequency: 'harian',
+        frequency,
         fetchedAt: new Date().toISOString(),
       };
 

@@ -252,6 +252,12 @@ export default function KelolaPenggunaPage() {
     setFormError(null);
     setSubmitting(true);
 
+    if (userForm.role === 'petugas' && (!userForm.warehouseIds || userForm.warehouseIds.length === 0)) {
+      setFormError('Pilih minimal 1 area gudang untuk penugasan petugas lapangan.');
+      setSubmitting(false);
+      return;
+    }
+
     try {
       if (editingUser) {
         // Mode 1: Edit Data Pengguna
@@ -409,12 +415,25 @@ export default function KelolaPenggunaPage() {
 
   const handleWarehouseCheckbox = (whId: string) => {
     setUserForm((prev) => {
-      const exists = prev.warehouseIds.includes(whId);
+      const current = prev.warehouseIds || [];
+      const exists = current.includes(whId);
       if (exists) {
-        return { ...prev, warehouseIds: prev.warehouseIds.filter((id) => id !== whId) };
+        return { ...prev, warehouseIds: current.filter((id) => id !== whId) };
       } else {
-        return { ...prev, warehouseIds: [...prev.warehouseIds, whId] };
+        return { ...prev, warehouseIds: [...current, whId] };
       }
+    });
+  };
+
+  const handleToggleSelectAllWarehouses = () => {
+    setUserForm((prev) => {
+      const allIds = warehouses.map((w) => w.id);
+      const current = prev.warehouseIds || [];
+      const isAllSelected = allIds.length > 0 && allIds.every((id) => current.includes(id));
+      return {
+        ...prev,
+        warehouseIds: isAllSelected ? [] : allIds,
+      };
     });
   };
 
@@ -1112,36 +1131,52 @@ export default function KelolaPenggunaPage() {
 
                 {/* Pilihan Gudang Khusus Petugas */}
                 {userForm.role === 'petugas' && (
-                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/90 space-y-2">
-                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                      <Building2 size={13} className="text-primary" />
-                      Penugasan Area Gudang:
-                    </label>
-                    <p className="text-[11px] text-slate-500">
-                      Pilih satu atau beberapa gudang yang menjadi tanggung jawab petugas ini:
+                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/90 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <Building2 size={14} className="text-primary" />
+                        <span>Penugasan Area Gudang</span>
+                        <span className="text-[11px] font-normal text-slate-500">
+                          ({userForm.warehouseIds?.length || 0} dipilih)
+                        </span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleToggleSelectAllWarehouses}
+                        className="text-[11px] font-bold text-primary hover:text-primary-700 hover:underline transition"
+                      >
+                        {warehouses.length > 0 &&
+                        warehouses.every((w) => (userForm.warehouseIds || []).includes(w.id))
+                          ? 'Batalkan Semua'
+                          : 'Pilih Semua (3 WH)'}
+                      </button>
+                    </div>
+
+                    <p className="text-[11px] text-slate-500 leading-snug">
+                      Pilih satu atau lebih gudang yang menjadi area tugas patroli petugas ini:
                     </p>
-                    <div className="grid grid-cols-3 gap-2 pt-1">
+
+                    <div className="grid grid-cols-3 gap-2 pt-0.5">
                       {warehouses.map((wh) => {
-                        const isChecked = userForm.warehouseIds.includes(wh.id);
+                        const isChecked = (userForm.warehouseIds || []).includes(wh.id);
                         return (
-                          <label
+                          <button
+                            type="button"
                             key={wh.id}
                             onClick={() => handleWarehouseCheckbox(wh.id)}
-                            className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border text-xs font-bold cursor-pointer transition-all select-none ${
+                            className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border text-xs font-bold transition-all select-none ${
                               isChecked
-                                ? 'bg-primary-50 border-primary text-primary-900 shadow-2xs ring-1 ring-primary/30'
-                                : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                                ? 'bg-primary-50 border-primary text-primary-900 shadow-2xs ring-2 ring-primary/20'
+                                : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50/80'
                             }`}
                           >
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => {}}
-                              className="hidden"
-                            />
                             <span>Gudang {wh.name}</span>
-                            {isChecked && <Check size={13} className="text-primary shrink-0" />}
-                          </label>
+                            {isChecked ? (
+                              <Check size={14} className="text-primary shrink-0 stroke-[3]" />
+                            ) : (
+                              <span className="h-3.5 w-3.5 rounded border border-slate-300 shrink-0" />
+                            )}
+                          </button>
                         );
                       })}
                     </div>

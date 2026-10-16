@@ -14,6 +14,7 @@ import {
   ArrowRight,
   ChevronDown,
   ChevronUp,
+  Building2,
 } from 'lucide-react';
 import { listQueue, setBundle, QUEUE_EVENT } from '@/lib/offline/db';
 import { syncQueue } from '@/lib/offline/sync';
@@ -78,21 +79,28 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
     }
   };
 
+  // Frekuensi pemeriksaan aktif (Harian vs Bulanan)
+  const isMonthly = bundle.frequency === 'bulanan';
+  const todayStr = jakartaDate();
+  const currentPeriodKey = isMonthly ? todayStr.slice(0, 7) : todayStr;
+
   const loadTodayInspections = async () => {
     try {
-      const todayStr = jakartaDate();
       const snap = await getDocs(collection(db, 'inspections'));
       const list: any[] = [];
       snap.forEach((doc) => {
         const data = doc.data();
         const insDate = (data.inspected_at || '').slice(0, 10);
-        if (insDate === todayStr) {
+        const matches = isMonthly
+          ? insDate.slice(0, 7) === currentPeriodKey
+          : insDate === currentPeriodKey;
+        if (matches) {
           list.push({ ...data, id: doc.id });
         }
       });
       setTodayInspections(list);
     } catch (e) {
-      console.error('Error fetching today inspections:', e);
+      console.error('Error fetching inspections:', e);
     }
   };
 
@@ -111,7 +119,7 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
       window.removeEventListener(QUEUE_EVENT, onQueueChange);
       window.removeEventListener('online', triggerSync);
     };
-  }, []);
+  }, [currentPeriodKey, isMonthly]);
 
   const triggerSync = async () => {
     if (!navigator.onLine) {
@@ -140,8 +148,7 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
     }
   };
 
-  // Gabungkan inspeksi Firestore hari ini dengan antrean offline hari ini
-  const todayStr = jakartaDate();
+  // Gabungkan inspeksi Firestore periode ini dengan antrean offline periode ini
   const combinedInspectedMap = useMemo(() => {
     const map = new Map<
       string,
@@ -154,7 +161,7 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
       }
     >();
 
-    // 1. Dari Firestore hari ini
+    // 1. Dari Firestore periode ini
     todayInspections.forEach((ins) => {
       const hydId = ins.hydrant_id;
       if (hydId) {
@@ -171,7 +178,10 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
     // 2. Dari Queue offline (IndexedDB)
     queue.forEach((q) => {
       const qDate = (q.inspectedAt || '').slice(0, 10);
-      if (qDate === todayStr || !qDate) {
+      const matches = isMonthly
+        ? qDate.slice(0, 7) === currentPeriodKey
+        : qDate === currentPeriodKey || !qDate;
+      if (matches) {
         map.set(q.hydrantId, {
           inspectedAt: q.inspectedAt || q.createdAt,
           notes: q.notes,
@@ -183,11 +193,34 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
     });
 
     return map;
-  }, [todayInspections, queue, todayStr, bundle.user.name]);
+  }, [todayInspections, queue, isMonthly, currentPeriodKey, bundle.user.name]);
 
-  // Daftar titik yang SUDAH dicek hari ini (dari seluruh penugasan petugas)
+  // Daftar gudang penugasan petugas (WH2, WH3, WH4, dll)
+  const assignedWarehouses = useMemo(() => {
+    const map = new Map<string, string>();
+    bundle.hydrants.forEach((h) => {
+      const whId = (h.warehouse_id || '').toLowerCase();
+      if (whId && !map.has(whId)) {
+        map.set(whId, h.warehouse_name || whId.toUpperCase());
+      }
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [bundle.hydrants]);
+
+  // Filter gudang aktif di antarmuka petugas
+  const [selectedWarehouseFilter, setSelectedWarehouseFilter] = useState<string>('all');
+
+  // Titik hydrant setelah difilter gudang yang dipilih petugas
+  const filteredHydrants = useMemo(() => {
+    if (selectedWarehouseFilter === 'all') return bundle.hydrants;
+    return bundle.hydrants.filter(
+      (h) => (h.warehouse_id || '').toLowerCase() === selectedWarehouseFilter.toLowerCase()
+    );
+  }, [bundle.hydrants, selectedWarehouseFilter]);
+
+  // Daftar titik yang SUDAH dicek periode ini (dari gudang yang dipilih)
   const checkedHydrants = useMemo(() => {
-    return bundle.hydrants
+    return filteredHydrants
       .filter((h) => combinedInspectedMap.has(h.id))
       .map((h) => {
         const info = combinedInspectedMap.get(h.id);
@@ -201,12 +234,12 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
         };
       })
       .sort((a, b) => (b.inspectedAt || '').localeCompare(a.inspectedAt || ''));
-  }, [bundle.hydrants, combinedInspectedMap, bundle.user.name]);
+  }, [filteredHydrants, combinedInspectedMap, bundle.user.name]);
 
-  // Daftar titik yang BELUM dicek hari ini
+  // Daftar titik yang BELUM dicek periode ini
   const uncheckedHydrants = useMemo(() => {
-    return bundle.hydrants.filter((h) => !combinedInspectedMap.has(h.id));
-  }, [bundle.hydrants, combinedInspectedMap]);
+    return filteredHydrants.filter((h) => !combinedInspectedMap.has(h.id));
+  }, [filteredHydrants, combinedInspectedMap]);
 
   const checkedCount = checkedHydrants.length;
   const uncheckedCount = uncheckedHydrants.length;
@@ -299,9 +332,63 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
           </span>
         </div>
         <span className="text-[10px] sm:text-[11px] font-black px-2.5 py-0.5 rounded-full bg-teal-50 text-teal-800 border border-teal-200 uppercase tracking-wider shrink-0 whitespace-nowrap">
-          FREKUENSI: {bundle.frequency === 'bulanan' ? 'BULANAN' : 'HARIAN'}
+          FREKUENSI: {isMonthly ? 'BULANAN' : 'HARIAN'}
         </span>
       </div>
+
+      {/* 2b. PILIHAN FILTER GUDANG JIKA PETUGAS MEMILIKI > 1 PENUGASAN WH */}
+      {assignedWarehouses.length > 1 && (
+        <div className="space-y-1.5 p-2.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs">
+          <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
+            <span className="flex items-center gap-1.5">
+              <Building2 size={13} className="text-primary" />
+              <span>Area Gudang ({assignedWarehouses.length} Gudang Ditugaskan):</span>
+            </span>
+            {selectedWarehouseFilter !== 'all' && (
+              <button
+                type="button"
+                onClick={() => setSelectedWarehouseFilter('all')}
+                className="text-[10px] text-primary hover:underline font-bold"
+              >
+                Reset Filter
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
+            <button
+              type="button"
+              onClick={() => setSelectedWarehouseFilter('all')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all select-none active:scale-95 ${
+                selectedWarehouseFilter === 'all'
+                  ? 'bg-primary text-white shadow-2xs'
+                  : 'bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              Semua ({bundle.hydrants.length})
+            </button>
+            {assignedWarehouses.map((wh) => {
+              const count = bundle.hydrants.filter(
+                (h) => (h.warehouse_id || '').toLowerCase() === wh.id.toLowerCase()
+              ).length;
+              const isSelected = selectedWarehouseFilter.toLowerCase() === wh.id.toLowerCase();
+              return (
+                <button
+                  type="button"
+                  key={wh.id}
+                  onClick={() => setSelectedWarehouseFilter(wh.id)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all select-none active:scale-95 ${
+                    isSelected
+                      ? 'bg-primary text-white shadow-2xs'
+                      : 'bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  Gudang {wh.name.replace(/^gudang\s+/i, '')} ({count})
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* 3. TOMBOL UTAMA: MULAI PERIKSA HYDRANT (SCAN QR) */}
       <div>
@@ -352,7 +439,7 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
             {checkedCount}
           </div>
           <p className="text-[10px] font-bold text-emerald-700/80 uppercase tracking-wide">
-            HARI INI TERPERIKSA
+            {isMonthly ? 'BULAN INI TERPERIKSA' : 'HARI INI TERPERIKSA'}
           </p>
         </div>
 
@@ -375,7 +462,7 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
             {uncheckedCount}
           </div>
           <p className="text-[10px] font-bold text-amber-700/80 uppercase tracking-wide">
-            SISA BELUM DI CEK
+            {isMonthly ? 'SISA BULAN INI' : 'SISA HARI INI'}
           </p>
         </div>
       </div>
