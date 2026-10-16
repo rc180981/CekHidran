@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail } from 'firebase/auth';
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from 'firebase/auth';
 import { db, auth, firebaseConfig } from '@/lib/firebase/client';
 import { ROLE_LABEL, Role } from '@/lib/rbac';
 import {
@@ -312,28 +312,68 @@ export default function KelolaPenggunaPage() {
         const secondaryAuth = getAuth(secondaryApp);
 
         // Buat Akun Auth
-        const cred = await createUserWithEmailAndPassword(
-          secondaryAuth,
-          userForm.email.trim(),
-          userForm.password
-        );
+        let newUid = '';
+        let isRecovered = false;
+
+        try {
+          const cred = await createUserWithEmailAndPassword(
+            secondaryAuth,
+            userForm.email.trim(),
+            userForm.password
+          );
+          newUid = cred.user.uid;
+        } catch (authErr: any) {
+          if (authErr.code === 'auth/email-already-in-use') {
+            // Cek apakah akun Auth sudah terdaftar tapi profil Firestore belum terbentuk (orphaned account)
+            try {
+              const signCred = await signInWithEmailAndPassword(
+                secondaryAuth,
+                userForm.email.trim(),
+                userForm.password
+              );
+              newUid = signCred.user.uid;
+              isRecovered = true;
+            } catch (signErr: any) {
+              if (signErr.code === 'auth/wrong-password' || signErr.code === 'auth/invalid-credential') {
+                throw new Error(
+                  'Alamat email ini sudah terdaftar di autentikasi dengan kata sandi berbeda. Masukkan kata sandi yang sesuai untuk memulihkan profil, atau kelola melalui Firebase Console.'
+                );
+              }
+              if (signErr.code === 'auth/too-many-requests') {
+                throw new Error(
+                  'Terlalu banyak percobaan autentikasi untuk email ini. Silakan tunggu beberapa menit lalu coba simpan kembali.'
+                );
+              }
+              throw authErr;
+            }
+          } else {
+            throw authErr;
+          }
+        }
 
         await signOut(secondaryAuth);
 
-        const newUid = cred.user.uid;
-
         // Simpan Profil ke Firestore
-        await setDoc(doc(db, 'profiles', newUid), {
-          id: newUid,
-          name: userForm.name.trim(),
-          email: userForm.email.trim(),
-          role: userForm.role,
-          warehouseIds: userForm.role === 'petugas' ? userForm.warehouseIds : ['wh2', 'wh3', 'wh4'],
-          active: true,
-          created_at: new Date().toISOString(),
-        });
+        await setDoc(
+          doc(db, 'profiles', newUid),
+          {
+            id: newUid,
+            name: userForm.name.trim(),
+            email: userForm.email.trim(),
+            role: userForm.role,
+            warehouseIds: userForm.role === 'petugas' ? userForm.warehouseIds : ['wh2', 'wh3', 'wh4'],
+            active: true,
+            created_at: new Date().toISOString(),
+            ...(isRecovered ? { recovered_at: new Date().toISOString() } : {}),
+          },
+          { merge: true }
+        );
 
-        setActionNotice(`Pengguna baru "${userForm.name}" berhasil didaftarkan dan siap login.`);
+        setActionNotice(
+          isRecovered
+            ? `Akun "${userForm.name}" (${userForm.email}) berhasil dipulihkan dan ditambahkan ke daftar pengguna!`
+            : `Pengguna baru "${userForm.name}" berhasil didaftarkan dan siap login.`
+        );
         setTimeout(() => setActionNotice(null), 4000);
       }
 
