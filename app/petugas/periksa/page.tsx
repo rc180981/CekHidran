@@ -6,8 +6,9 @@ import { useEffect, useState, Suspense } from 'react';
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/client';
 import InspectionWizard from '@/components/petugas/InspectionWizard';
-import type { PetugasBundle, CachedHydrant, ChecklistItem } from '@/lib/types';
+import type { PetugasBundle, CachedHydrant, ChecklistItem, ReinspectionRequest } from '@/lib/types';
 import { sha256Hex } from '@/lib/qr';
+import { jakartaDate } from '@/lib/period';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 
@@ -101,6 +102,42 @@ function PeriksaContent() {
         }
       } catch {}
 
+      // Ambil inspeksi periode berjalan untuk validasi status periksa 1x
+      const periodKey = frequency === 'bulanan' ? jakartaDate().slice(0, 7) : jakartaDate();
+      const recentInspections: Record<string, { inspectedAt: string; inspectorName: string }> = {};
+      try {
+        const insSnap = await getDocs(collection(db, 'inspections'));
+        insSnap.forEach((d) => {
+          const data = d.data();
+          const dDate = (data.inspected_at || '').slice(0, 10);
+          const matches = frequency === 'bulanan'
+            ? dDate.slice(0, 7) === periodKey
+            : dDate === periodKey;
+          if (matches && data.hydrant_id) {
+            recentInspections[data.hydrant_id] = {
+              inspectedAt: data.inspected_at,
+              inspectorName: data.user_name || data.userName || 'Petugas',
+            };
+          }
+        });
+      } catch (e) {
+        console.warn('Gagal memuat status inspeksi terkini:', e);
+      }
+
+      // Ambil permintaan re-inspeksi yang pending dari Admin / Supervisor K3
+      const reinspections: Record<string, ReinspectionRequest> = {};
+      try {
+        const reSnap = await getDocs(collection(db, 'reinspection_requests'));
+        reSnap.forEach((d) => {
+          const data = d.data() as ReinspectionRequest;
+          if (data.status === 'pending' && data.hydrant_id) {
+            reinspections[data.hydrant_id] = data;
+          }
+        });
+      } catch (e) {
+        console.warn('Gagal memuat permintaan reinspeksi:', e);
+      }
+
       const newBundle: PetugasBundle = {
         user: {
           id: profile?.id || 'petugas',
@@ -112,6 +149,8 @@ function PeriksaContent() {
         items: itemsList,
         frequency,
         fetchedAt: new Date().toISOString(),
+        recentInspections,
+        reinspections,
       };
 
       setBundle(newBundle);
@@ -199,7 +238,7 @@ function PeriksaContent() {
             </div>
           </div>
           <span className="text-[9px] sm:text-[10px] font-extrabold uppercase px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-teal-50 text-teal-800 border border-teal-200/70">
-            HARIAN
+            {bundle.frequency === 'bulanan' ? 'BULANAN' : 'HARIAN'}
           </span>
         </div>
       </header>

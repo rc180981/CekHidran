@@ -26,12 +26,31 @@ export interface CachedHydrant {
   qr_code?: string;
 }
 
+export interface ReinspectionRequest {
+  id: string;
+  hydrant_id: string;
+  hydrant_number?: string;
+  warehouse_name?: string;
+  period_key: string;
+  status: 'pending' | 'completed' | 'cancelled';
+  requested_by_id: string;
+  requested_by_name: string;
+  requested_by_role?: string;
+  requested_at: string;
+  reason: string;
+  completed_at?: string;
+  completed_by_id?: string;
+  completed_by_name?: string;
+}
+
 export interface PetugasBundle {
   user: { id: string; name: string; role: Role; warehouseIds: string[]; warehouseNames?: string[] };
   hydrants: CachedHydrant[];
   items: ChecklistItem[];
   frequency: Frequency;
   fetchedAt: string;
+  reinspections?: Record<string, ReinspectionRequest>;
+  recentInspections?: Record<string, { inspectedAt: string; inspectorName: string }>;
 }
 
 export interface QueuedInspection {

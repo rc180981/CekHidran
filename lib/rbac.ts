@@ -24,7 +24,8 @@ export type Permission =
   | 'kelola_pengaturan'
   | 'ekspor_laporan'
   | 'lihat_riwayat_semua'
-  | 'lihat_audit';
+  | 'lihat_audit'
+  | 'minta_reinspeksi';
 
 export const PERMISSIONS: Record<Permission, readonly Role[]> = {
   // petugas hanya melihat gudang sendiri (dibatasi lewat canViewWarehouse + RLS)
@@ -38,6 +39,7 @@ export const PERMISSIONS: Record<Permission, readonly Role[]> = {
   ekspor_laporan: ['admin_sistem', 'supervisor_k3', 'manajemen'],
   lihat_riwayat_semua: ['admin_sistem', 'supervisor_k3', 'manajemen'],
   lihat_audit: ['admin_sistem'],
+  minta_reinspeksi: ['admin_sistem', 'supervisor_k3'],
 };
 
 export function isRole(value: unknown): value is Role {

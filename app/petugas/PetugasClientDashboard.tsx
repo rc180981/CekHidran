@@ -14,6 +14,7 @@ import {
   ArrowRight,
   ChevronDown,
   ChevronUp,
+  AlertTriangle,
 } from 'lucide-react';
 import { listQueue, setBundle, QUEUE_EVENT } from '@/lib/offline/db';
 import { syncQueue } from '@/lib/offline/sync';
@@ -78,6 +79,8 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
     }
   };
 
+  const [reinspections, setReinspections] = useState<Record<string, any>>({});
+
   // Frekuensi pemeriksaan aktif (Harian vs Bulanan)
   const isMonthly = bundle.frequency === 'bulanan';
   const todayStr = jakartaDate();
@@ -98,6 +101,21 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
         }
       });
       setTodayInspections(list);
+
+      // Ambil permintaan re-inspeksi yang pending
+      try {
+        const reSnap = await getDocs(collection(db, 'reinspection_requests'));
+        const reMap: Record<string, any> = {};
+        reSnap.forEach((doc) => {
+          const data = doc.data();
+          if (data.status === 'pending' && data.hydrant_id) {
+            reMap[data.hydrant_id] = data;
+          }
+        });
+        setReinspections(reMap);
+      } catch (reErr) {
+        console.warn('Gagal memuat reinspections:', reErr);
+      }
     } catch (e) {
       console.error('Error fetching inspections:', e);
     }
@@ -223,6 +241,11 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
   const checkedCount = checkedHydrants.length;
   const uncheckedCount = uncheckedHydrants.length;
 
+  // Titik yang memerlukan pemeriksaan ulang (re-inspeksi) atas permintaan Admin
+  const pendingReinspections = useMemo(() => {
+    return filteredHydrants.filter((h) => Boolean(reinspections[h.id]));
+  }, [filteredHydrants, reinspections]);
+
   return (
     <div className="space-y-3 sm:space-y-4">
       {/* 1. HEADER ATAS DENGAN ANTREAN OFFLINE TERINTEGRASI */}
@@ -315,6 +338,25 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
         </span>
       </div>
 
+      {/* BANNER NOTIFIKASI PERMINTAAN RE-INSPEKSI DARI ADMIN */}
+      {pendingReinspections.length > 0 && (
+        <div className="rounded-2xl border-2 border-blue-400 bg-gradient-to-r from-blue-50 to-indigo-50/70 p-3 sm:p-4 shadow-sm space-y-2 animate-in fade-in duration-200">
+          <div className="flex items-start gap-2.5">
+            <div className="h-8 w-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0">
+              <AlertTriangle size={17} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-xs sm:text-sm font-black uppercase text-blue-950 tracking-wide leading-tight">
+                {pendingReinspections.length} TITIK HYDRANT DIMINTA PEMERIKSAAN ULANG (REVISI)
+              </h3>
+              <p className="mt-0.5 text-[11px] text-blue-900 leading-snug">
+                Admin Sistem / Supervisor K3 meminta pembaruan data untuk titik berikut:{' '}
+                <strong>{pendingReinspections.map((h) => h.number).join(', ')}</strong>.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 3. TOMBOL UTAMA: MULAI PERIKSA HYDRANT (SCAN QR) */}
       <div>
@@ -462,9 +504,14 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
                       </div>
                     </div>
 
-                    {/* Kanan: Status Waktu / Offline & Panah Expand */}
+                    {/* Kanan: Status Waktu / Offline / Reinspeksi & Panah Expand */}
                     <div className="flex items-center gap-2 shrink-0">
-                      {h.isOfflineQueue ? (
+                      {reinspections[h.id] ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-md bg-blue-100 text-blue-900 border border-blue-300 uppercase animate-pulse">
+                          <AlertTriangle size={11} className="text-blue-700 shrink-0" />
+                          <span>REVISI DIMINTA</span>
+                        </span>
+                      ) : h.isOfflineQueue ? (
                         <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-200 uppercase">
                           OFFLINE
                         </span>
@@ -520,6 +567,30 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
                         <p className="text-[11px] text-slate-600 italic bg-white p-2 rounded-lg border border-slate-200 leading-relaxed">
                           Catatan: {h.notes}
                         </p>
+                      )}
+
+                      {/* INSTRUKSI RE-INSPEKSI DARI ADMIN (JIKA ADA) */}
+                      {reinspections[h.id] && (
+                        <div className="p-3 rounded-xl bg-blue-50/90 border border-blue-200 text-xs text-blue-950 space-y-2 mt-1">
+                          <div className="flex items-center gap-1.5 font-black text-blue-900 uppercase text-[10px] tracking-wide">
+                            <AlertTriangle size={14} className="text-blue-700 shrink-0" />
+                            <span>PERMINTAAN PEMERIKSAAN ULANG DARI ADMIN</span>
+                          </div>
+                          <div className="bg-white/95 p-2.5 rounded-lg border border-blue-100 text-xs font-semibold text-slate-800 italic">
+                            &ldquo;{reinspections[h.id].reason}&rdquo;
+                          </div>
+                          <div className="flex items-center justify-between pt-1">
+                            <span className="text-[10px] text-blue-800 font-medium">
+                              Diminta oleh: <strong>{reinspections[h.id].requested_by_name}</strong>
+                            </span>
+                            <Link
+                              href={`/petugas/periksa?qr=${encodeURIComponent(h.qr_code || h.number)}`}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white font-black text-xs shadow-xs transition-all active:scale-95"
+                            >
+                              Periksa Ulang Sekarang <ArrowRight size={13} />
+                            </Link>
+                          </div>
+                        </div>
                       )}
                     </div>
                   )}

@@ -148,7 +148,23 @@ async function doSync(): Promise<SyncResult> {
         );
       }
 
-      // 4. Hapus dari antrean lokal karena sudah sukses masuk ke database
+      // 5. Tandai permintaan re-inspeksi (jika ada) sebagai completed
+      try {
+        await setDoc(
+          doc(db, 'reinspection_requests', it.hydrantId),
+          {
+            status: 'completed',
+            completed_at: it.inspectedAt || new Date().toISOString(),
+            completed_by_id: it.userId || auth.currentUser?.uid || 'petugas',
+            completed_by_name: it.userName || auth.currentUser?.displayName || 'Petugas',
+          },
+          { merge: true },
+        );
+      } catch (reErr) {
+        console.warn('Gagal update status reinspeksi:', reErr);
+      }
+
+      // 6. Hapus dari antrean lokal karena sudah sukses masuk ke database
       await removeQueued(it.id);
       sent++;
     } catch (err: any) {

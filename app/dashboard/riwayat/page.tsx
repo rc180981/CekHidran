@@ -2,13 +2,14 @@
 
 import { useAuth } from '@/lib/firebase/auth-context';
 import { useEffect, useState } from 'react';
-import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/client';
 import { Card } from '@/components/ui';
-import { Image as ImageIcon, Building2, Filter, X, ChevronRight, Eye, FileText, Loader2, Download, Calendar } from 'lucide-react';
+import { Image as ImageIcon, Building2, Filter, X, ChevronRight, Eye, FileText, Loader2, Download, Calendar, Lock, AlertTriangle, RotateCcw, Clock, ShieldAlert } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { monthRange, monthLabel, jakartaMonth } from '@/lib/period';
+import { monthRange, monthLabel, jakartaMonth, jakartaDate } from '@/lib/period';
+import { can } from '@/lib/rbac';
 
 const MONTHS_LIST = [
   { num: '01', name: 'Januari' },
@@ -41,19 +42,26 @@ export default function RiwayatChecksheetPage() {
   const [currentMonth, setCurrentMonth] = useState<string>(jakartaMonth());
   const [currentYear, setCurrentYear] = useState<string>(new Date().getFullYear().toString());
 
+  const { user, profile } = useAuth();
+  const [reinspections, setReinspections] = useState<any[]>([]);
+  const [showReinspectModal, setShowReinspectModal] = useState(false);
+  const [reinspectReason, setReinspectReason] = useState('');
+  const [submittingReinspection, setSubmittingReinspection] = useState(false);
+
   // Modal Foto Preview
   const [previewPhotos, setPreviewPhotos] = useState<{ photos: string[]; title: string } | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [wSnap, hSnap, iSnap, insSnap, pSnap, freqSnap] = await Promise.all([
+        const [wSnap, hSnap, iSnap, insSnap, pSnap, freqSnap, reSnap] = await Promise.all([
           getDocs(collection(db, 'warehouses')),
           getDocs(collection(db, 'hydrants')),
           getDocs(collection(db, 'checklist_items')),
           getDocs(collection(db, 'inspections')),
           getDocs(collection(db, 'profiles')),
           getDoc(doc(db, 'app_settings', 'inspection_frequency')),
+          getDocs(collection(db, 'reinspection_requests')),
         ]);
 
         if (freqSnap.exists() && freqSnap.data()?.value === 'bulanan') {
@@ -87,6 +95,10 @@ export default function RiwayatChecksheetPage() {
         const prList: any[] = [];
         pSnap.forEach((d) => prList.push(d.data()));
         setProfiles(prList);
+
+        const reList: any[] = [];
+        reSnap.forEach((d) => reList.push({ id: d.id, ...d.data() }));
+        setReinspections(reList);
       } catch (err) {
         console.error(err);
       } finally {
@@ -131,6 +143,77 @@ export default function RiwayatChecksheetPage() {
         }
       }
     });
+
+  const currentPeriodKey = frequency === 'bulanan' ? jakartaDate().slice(0, 7) : jakartaDate();
+  const canRequestReinspection = can(profile?.role, 'minta_reinspeksi');
+
+  const activeReinspection = reinspections.find(
+    (r) => r.hydrant_id === activeHydrant?.id && r.status === 'pending'
+  );
+
+  const currentPeriodInspection = activeHydrant
+    ? inspections.find((i) => {
+        if (i.hydrant_id !== activeHydrant.id) return false;
+        const dDate = (i.inspected_at || '').slice(0, 10);
+        return frequency === 'bulanan'
+          ? dDate.slice(0, 7) === currentPeriodKey
+          : dDate === currentPeriodKey;
+      })
+    : null;
+
+  const handleRequestReinspection = async () => {
+    if (!activeHydrant) return;
+    if (!reinspectReason.trim()) {
+      alert('Mohon masukkan catatan atau alasan meminta pemeriksaan ulang.');
+      return;
+    }
+    setSubmittingReinspection(true);
+    try {
+      const reqData = {
+        id: activeHydrant.id,
+        hydrant_id: activeHydrant.id,
+        hydrant_number: activeHydrant.number,
+        warehouse_name: activeHydrant.warehouse_name,
+        period_key: currentPeriodKey,
+        status: 'pending',
+        requested_by_id: profile?.id || user?.uid || 'admin',
+        requested_by_name: profile?.name || user?.displayName || 'Admin / Supervisor K3',
+        requested_by_role: profile?.role || 'admin_sistem',
+        requested_at: new Date().toISOString(),
+        reason: reinspectReason.trim(),
+      };
+      await setDoc(doc(db, 'reinspection_requests', activeHydrant.id), reqData, { merge: true });
+      setReinspections((prev) => [
+        ...prev.filter((r) => r.hydrant_id !== activeHydrant.id),
+        reqData,
+      ]);
+      setShowReinspectModal(false);
+      setReinspectReason('');
+    } catch (e: any) {
+      console.error('Gagal mengajukan re-inspeksi:', e);
+      alert('Gagal mengajukan pemeriksaan ulang: ' + (e?.message || 'Error'));
+    } finally {
+      setSubmittingReinspection(false);
+    }
+  };
+
+  const handleCancelReinspection = async () => {
+    if (!activeHydrant) return;
+    if (!confirm(`Batalkan permintaan pemeriksaan ulang untuk titik ${activeHydrant.number}?`)) return;
+    try {
+      await setDoc(
+        doc(db, 'reinspection_requests', activeHydrant.id),
+        { status: 'cancelled' },
+        { merge: true }
+      );
+      setReinspections((prev) =>
+        prev.filter((r) => r.hydrant_id !== activeHydrant.id)
+      );
+    } catch (e: any) {
+      console.error('Gagal membatalkan re-inspeksi:', e);
+      alert('Gagal membatalkan permintaan.');
+    }
+  };
 
   // Handler Cetak PDF Checksheet (Tepat 1 Halaman A4 Landscape)
   const handleExportPdf = () => {
@@ -667,6 +750,89 @@ export default function RiwayatChecksheetPage() {
                 </strong>
               </div>
             </div>
+
+            {/* STATUS KUNCI PEMERIKSAAN & KONTROL RE-INSPEKSI K3 */}
+            {activeReinspection ? (
+              <div className="mt-3.5 p-3 rounded-xl border border-blue-300 bg-blue-50/90 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in duration-150">
+                <div className="flex items-start gap-2.5">
+                  <div className="h-7 w-7 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0 mt-0.5">
+                    <AlertTriangle size={15} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black text-blue-950 uppercase tracking-wide">
+                        STATUS: PERMINTAAN PEMERIKSAAN ULANG AKTIF
+                      </span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-200 text-blue-900 uppercase">
+                        Izin Terbuka
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-blue-900 mt-0.5">
+                      Diminta oleh: <strong>{activeReinspection.requested_by_name}</strong> • Alasan: &ldquo;{activeReinspection.reason}&rdquo;
+                    </p>
+                  </div>
+                </div>
+                {canRequestReinspection && (
+                  <button
+                    type="button"
+                    onClick={handleCancelReinspection}
+                    className="btn-secondary text-xs px-3 py-1.5 text-red-700 border-red-200 hover:bg-red-50 shrink-0"
+                  >
+                    Batalkan Permintaan
+                  </button>
+                )}
+              </div>
+            ) : currentPeriodInspection ? (
+              <div className="mt-3.5 p-3 rounded-xl border border-emerald-300 bg-emerald-50/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in duration-150">
+                <div className="flex items-start gap-2.5">
+                  <div className="h-7 w-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-0.5">
+                    <Lock size={15} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black text-emerald-950 uppercase tracking-wide">
+                        STATUS SIKLUS INI: SUDAH DIPERIKSA &amp; TERKUNCI (1X SIKLUS)
+                      </span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 uppercase">
+                        Terkunci
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-emerald-900 mt-0.5">
+                      Diperiksa oleh{' '}
+                      <strong>
+                        {profiles.find((p) => p.id === currentPeriodInspection.user_id)?.name ||
+                          currentPeriodInspection.user_name ||
+                          'Petugas Lapangan'}
+                      </strong>{' '}
+                      pada {new Date(currentPeriodInspection.inspected_at).toLocaleString('id-ID')}. Form dikunci dari penginputan duplikat mandiri.
+                    </p>
+                  </div>
+                </div>
+                {canRequestReinspection && (
+                  <button
+                    type="button"
+                    onClick={() => setShowReinspectModal(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs shrink-0 transition-all active:scale-95"
+                  >
+                    <RotateCcw size={13} />
+                    <span>Minta Pemeriksaan Ulang</span>
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="mt-3.5 p-2.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-xs text-slate-600">
+                  <Clock size={15} className="text-slate-400" />
+                  <span>
+                    Status Siklus Berjalan:{' '}
+                    <strong className="text-slate-800">Belum Ada Pemeriksaan</strong> (Menunggu Petugas)
+                  </span>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-200 text-slate-700 uppercase">
+                  Siap Diperiksa
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="overflow-x-auto border border-slate-400 rounded-lg">
@@ -936,6 +1102,96 @@ export default function RiwayatChecksheetPage() {
                 className="btn-secondary text-xs px-4 py-2"
               >
                 Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL PERMINTAAN RE-INSPEKSI ================= */}
+      {showReinspectModal && activeHydrant && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150">
+            <div className="px-5 py-4 border-b border-slate-200 bg-amber-50/70 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-amber-950 font-black text-sm uppercase">
+                <RotateCcw size={17} className="text-amber-700" />
+                <span>MINTA PEMERIKSAAN ULANG (REVISI)</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowReinspectModal(false);
+                  setReinspectReason('');
+                }}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs text-slate-700">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">Titik Hydrant:</span>
+                  <span className="font-bold text-slate-900">{activeHydrant.number} ({activeHydrant.location_name})</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">Area Gudang:</span>
+                  <span className="font-bold text-slate-900">Gudang {activeHydrant.warehouse_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">Periode Aktif:</span>
+                  <span className="font-bold text-primary uppercase">
+                    {frequency === 'bulanan' ? `Bulan ${currentPeriodKey}` : `Tanggal ${currentPeriodKey}`}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="reinspect-reason" className="block text-xs font-bold text-slate-800 uppercase tracking-wide">
+                  Instruksi / Alasan Pemeriksaan Ulang: <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  id="reinspect-reason"
+                  rows={4}
+                  value={reinspectReason}
+                  onChange={(e) => setReinspectReason(e.target.value)}
+                  placeholder="Contoh: Foto nozzle dan selang kurang jelas, mohon ambil ulang. Pastikan kran utama tertutup rapat dan segel utuh..."
+                  className="input w-full p-3 text-xs border-slate-300 focus:border-amber-500 focus:ring-amber-500/20 rounded-xl leading-relaxed"
+                />
+                <p className="text-[11px] text-slate-500">
+                  Catatan ini akan langsung tampil di smartphone petugas dan membuka akses pengisian form kembali untuk titik ini.
+                </p>
+              </div>
+            </div>
+
+            <div className="px-5 py-3.5 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowReinspectModal(false);
+                  setReinspectReason('');
+                }}
+                disabled={submittingReinspection}
+                className="btn-secondary text-xs px-4 py-2 font-bold"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleRequestReinspection}
+                disabled={submittingReinspection || !reinspectReason.trim()}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-bold text-xs shadow-sm transition-all active:scale-95"
+              >
+                {submittingReinspection ? (
+                  <>
+                    <Loader2 size={13} className="animate-spin" /> Mengirim...
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw size={13} /> Buka Kunci &amp; Minta Re-inspeksi
+                  </>
+                )}
               </button>
             </div>
           </div>

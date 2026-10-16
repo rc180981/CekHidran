@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { QrCode, Trash2, ArrowLeft, ArrowRight, Save, Wifi, WifiOff, AlertTriangle, Camera } from 'lucide-react';
+import Link from 'next/link';
+import { QrCode, Trash2, ArrowLeft, ArrowRight, Save, Wifi, WifiOff, AlertTriangle, Camera, Lock, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import StepIndicator from '@/components/StepIndicator';
 import QrScanner from './QrScanner';
 import CameraCapture from './CameraCapture';
@@ -10,8 +11,10 @@ import SignaturePad from './SignaturePad';
 import { extractQrCode, sha256Hex, safeUUID } from '@/lib/qr';
 import { formatDateTime, formatStamp } from '@/lib/period';
 import { stampImageFile } from '@/lib/image';
-import { getBundle, enqueue, refreshBundle } from '@/lib/offline/db';
+import { getBundle, enqueue, refreshBundle, listQueue } from '@/lib/offline/db';
 import { syncQueue } from '@/lib/offline/sync';
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase/client';
 import type { CachedHydrant, ChecklistItem, PetugasBundle, CheckResultValue } from '@/lib/types';
 import { StatusBadge, LocationTag } from '@/components/ui';
 
@@ -75,6 +78,39 @@ export default function InspectionWizard({
   const [signatureData, setSignatureData] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [localQueueHydrants, setLocalQueueHydrants] = useState<
+    Record<string, { inspectedAt: string; inspectorName: string }>
+  >({});
+
+  // Cek status inspeksi di antrean offline IndexedDB
+  useEffect(() => {
+    listQueue()
+      .then((qList) => {
+        const map: Record<string, { inspectedAt: string; inspectorName: string }> = {};
+        qList.forEach((q) => {
+          if (q.hydrantId) {
+            map[q.hydrantId] = {
+              inspectedAt: q.inspectedAt,
+              inspectorName: q.userName || 'Petugas (Antrean Offline)',
+            };
+          }
+        });
+        setLocalQueueHydrants(map);
+      })
+      .catch((e) => console.warn('Gagal membaca antrean offline:', e));
+  }, []);
+
+  // Status kunci & izin re-inspeksi untuk titik hydrant terpilih
+  const inspectionInfo = matchedHydrant
+    ? bundle.recentInspections?.[matchedHydrant.id] || localQueueHydrants[matchedHydrant.id]
+    : null;
+
+  const reinspectionReq = matchedHydrant
+    ? bundle.reinspections?.[matchedHydrant.id]
+    : null;
+
+  const isLocked = Boolean(inspectionInfo && !reinspectionReq);
+  const isReinspectionAuthorized = Boolean(inspectionInfo && reinspectionReq);
 
   useEffect(() => {
     setOnline(typeof navigator !== 'undefined' ? navigator.onLine : true);
@@ -289,6 +325,24 @@ export default function InspectionWizard({
 
       // Simpan ke IndexedDB queue terlebih dahulu
       await enqueue(queuedItem);
+
+      // Jika ini re-inspeksi dan online, update status reinspeksi di server
+      if (reinspectionReq && navigator.onLine) {
+        try {
+          await setDoc(
+            doc(db, 'reinspection_requests', matchedHydrant.id),
+            {
+              status: 'completed',
+              completed_at: inspectedAt,
+              completed_by_id: bundle.user.id,
+              completed_by_name: bundle.user.name,
+            },
+            { merge: true }
+          );
+        } catch (reErr) {
+          console.warn('Gagal update status reinspeksi online:', reErr);
+        }
+      }
 
       // Coba sinkronisasi jika online
       if (navigator.onLine) {
@@ -511,16 +565,129 @@ export default function InspectionWizard({
                 )}
               </div>
 
-              {/* Tombol Lanjut ke Foto Kondisi */}
-              <button
-                type="button"
-                disabled={!matchedHydrant}
-                onClick={() => setStep(2)}
-                className="relative w-full h-12 rounded-xl bg-gradient-to-r from-primary to-teal-800 hover:from-primary-700 hover:to-teal-900 active:scale-[0.98] text-white font-bold text-sm tracking-wide shadow-md shadow-primary/25 transition-all flex items-center justify-center gap-2 select-none"
-              >
-                <span>LANJUT KE FOTO KONDISI</span>
-                <ArrowRight size={18} />
-              </button>
+              {/* KONDISI 1: SUDAH DIPERIKSA & TIDAK ADA PERMINTAAN ADMIN (TERKUNCI) */}
+              {isLocked && inspectionInfo && (
+                <div className="rounded-2xl border-2 border-amber-300 bg-amber-50/90 p-4 space-y-3.5 shadow-sm animate-in fade-in duration-200">
+                  <div className="flex items-start gap-2.5">
+                    <div className="h-9 w-9 rounded-xl bg-amber-200/80 text-amber-900 flex items-center justify-center shrink-0 mt-0.5">
+                      <Lock size={18} />
+                    </div>
+                    <div>
+                      <h3 className="text-xs sm:text-sm font-black uppercase text-amber-950 tracking-wide">
+                        PEMERIKSAAN TELAH SELESAI &amp; TERKUNCI
+                      </h3>
+                      <p className="text-[11px] text-amber-900/90 mt-0.5 leading-relaxed">
+                        Titik ini telah selesai diperiksa oleh{' '}
+                        <strong className="text-slate-900">{inspectionInfo.inspectorName}</strong>
+                        {inspectionInfo.inspectedAt && (
+                          <span> pada <strong>{formatDateTime(inspectionInfo.inspectedAt)}</strong></span>
+                        )}.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-white/90 rounded-xl border border-amber-200 text-xs text-slate-700 space-y-1.5 leading-relaxed">
+                    <div className="flex items-center gap-1.5 font-bold uppercase text-[10px] tracking-wider text-amber-900">
+                      <ShieldAlert size={14} className="text-amber-700 shrink-0" />
+                      <span>SOP K3 &amp; INTEGRITAS DATA PEMERIKSAAN</span>
+                    </div>
+                    <p className="text-[11px] text-slate-600">
+                      Pemeriksaan hydrant hanya dapat dilakukan <strong>1 kali per periode ({bundle.frequency === 'bulanan' ? 'Bulanan' : 'Harian'})</strong>.
+                      Pembaruan atau pemeriksaan ulang hanya dapat dibuka atas instruksi resmi dari <strong>Admin Sistem</strong> atau <strong>Supervisor K3</strong>.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setScanMode(true);
+                        setMatchedHydrant(null);
+                        setIsEmergencyMode(false);
+                      }}
+                      className="btn-secondary h-11 text-xs font-bold w-full text-center flex items-center justify-center"
+                    >
+                      Pindai Titik Lain
+                    </button>
+                    <Link
+                      href="/petugas"
+                      className="btn-primary h-11 text-xs font-bold w-full text-center flex items-center justify-center shadow-xs"
+                    >
+                      Kembali ke Beranda
+                    </Link>
+                  </div>
+                </div>
+              )}
+
+              {/* KONDISI 2: PERMINTAAN PEMERIKSAAN ULANG DARI ADMIN (DIIZINKAN) */}
+              {isReinspectionAuthorized && reinspectionReq && (
+                <div className="space-y-3 animate-in fade-in duration-200">
+                  <div className="rounded-2xl border-2 border-blue-300 bg-blue-50/90 p-4 space-y-3 shadow-sm">
+                    <div className="flex items-start gap-2.5">
+                      <div className="h-9 w-9 rounded-xl bg-blue-200/80 text-blue-900 flex items-center justify-center shrink-0 mt-0.5">
+                        <AlertTriangle size={18} />
+                      </div>
+                      <div>
+                        <h3 className="text-xs sm:text-sm font-black uppercase text-blue-950 tracking-wide">
+                          IZIN RE-INSPEKSI DARI ADMIN / SUPERVISOR
+                        </h3>
+                        <p className="text-[11px] text-blue-900 mt-0.5 leading-relaxed">
+                          Diminta oleh: <strong>{reinspectionReq.requested_by_name}</strong>
+                          {reinspectionReq.requested_at && (
+                            <span> ({formatDateTime(reinspectionReq.requested_at)})</span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-white/95 rounded-xl border border-blue-200 text-xs text-slate-800 space-y-1">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-blue-900 block">
+                        CATATAN / ALASAN PEMERIKSAAN ULANG:
+                      </span>
+                      <p className="text-xs font-semibold text-slate-900 italic">
+                        &ldquo;{reinspectionReq.reason}&rdquo;
+                      </p>
+                    </div>
+
+                    <p className="text-[11px] text-blue-900 font-medium leading-relaxed">
+                      Kunci pemeriksaan telah dibuka. Silakan lakukan pemeriksaan ulang dan perbarui foto kondisi fisik serta checklist hydrant.
+                    </p>
+                  </div>
+
+                  {/* Tombol Lanjut ke Foto Kondisi (Mode Pembaruan) */}
+                  <button
+                    type="button"
+                    disabled={!matchedHydrant}
+                    onClick={() => {
+                      if (!notes.includes('[RE-INSPEKSI ADMIN]')) {
+                        setNotes((prev) =>
+                          prev
+                            ? `${prev}\n[RE-INSPEKSI ATAS PERMINTAAN ADMIN: ${reinspectionReq.reason}]`
+                            : `[RE-INSPEKSI ATAS PERMINTAAN ADMIN: ${reinspectionReq.reason}]`
+                        );
+                      }
+                      setStep(2);
+                    }}
+                    className="relative w-full h-12 rounded-xl bg-gradient-to-r from-blue-600 to-teal-800 hover:from-blue-700 hover:to-teal-900 active:scale-[0.98] text-white font-bold text-sm tracking-wide shadow-md shadow-blue-600/25 transition-all flex items-center justify-center gap-2 select-none"
+                  >
+                    <span>LANJUT KE FOTO KONDISI (REVISI)</span>
+                    <ArrowRight size={18} />
+                  </button>
+                </div>
+              )}
+
+              {/* KONDISI 3: NORMAL (BELUM PERNAH DIPERIKSA DI PERIODE INI) */}
+              {!isLocked && !isReinspectionAuthorized && (
+                <button
+                  type="button"
+                  disabled={!matchedHydrant}
+                  onClick={() => setStep(2)}
+                  className="relative w-full h-12 rounded-xl bg-gradient-to-r from-primary to-teal-800 hover:from-primary-700 hover:to-teal-900 active:scale-[0.98] text-white font-bold text-sm tracking-wide shadow-md shadow-primary/25 transition-all flex items-center justify-center gap-2 select-none"
+                >
+                  <span>LANJUT KE FOTO KONDISI</span>
+                  <ArrowRight size={18} />
+                </button>
+              )}
             </div>
           )}
         </div>
