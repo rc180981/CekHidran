@@ -47,43 +47,19 @@ function PeriksaContent() {
 
       for (const doc of hSnap.docs) {
         const data = doc.data();
-        const docWh = (data.warehouse_id || '').toLowerCase();
-        // Cocokkan gudang jika petugas punya tugas spesifik, atau ambil semua jika profil kosong
-        if (userWh.length === 0 || userWh.includes(docWh)) {
-          const qrVal = data.qr_code || '';
-          const hash = qrVal ? await sha256Hex(qrVal) : '';
-          hydrantsList.push({
-            id: data.id,
-            number: data.number,
-            type: data.type || 'Box Hydrant',
-            location_name: data.location_name,
-            location_type: data.location_type || 'indoor',
-            warehouse_id: data.warehouse_id,
-            warehouse_name: data.warehouse_name || '',
-            qr_hash: hash,
-            qr_code: qrVal,
-          });
-        }
-      }
-
-      // Jika filter gudang menghasilkan 0, ambil seluruh hydrant yang ada
-      if (hydrantsList.length === 0 && hSnap.docs.length > 0) {
-        for (const doc of hSnap.docs) {
-          const data = doc.data();
-          const qrVal = data.qr_code || '';
-          const hash = qrVal ? await sha256Hex(qrVal) : '';
-          hydrantsList.push({
-            id: data.id,
-            number: data.number,
-            type: data.type || 'Box Hydrant',
-            location_name: data.location_name,
-            location_type: data.location_type || 'indoor',
-            warehouse_id: data.warehouse_id,
-            warehouse_name: data.warehouse_name || '',
-            qr_hash: hash,
-            qr_code: qrVal,
-          });
-        }
+        const qrVal = data.qr_code || '';
+        const hash = qrVal ? await sha256Hex(qrVal) : '';
+        hydrantsList.push({
+          id: data.id,
+          number: data.number,
+          type: data.type || 'Box Hydrant',
+          location_name: data.location_name,
+          location_type: data.location_type || 'indoor',
+          warehouse_id: data.warehouse_id,
+          warehouse_name: data.warehouse_name || '',
+          qr_hash: hash,
+          qr_code: qrVal,
+        });
       }
 
       const iSnap = await getDocs(collection(db, 'checklist_items'));
