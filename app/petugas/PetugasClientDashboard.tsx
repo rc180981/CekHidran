@@ -14,7 +14,6 @@ import {
   ArrowRight,
   ChevronDown,
   ChevronUp,
-  Building2,
 } from 'lucide-react';
 import { listQueue, setBundle, QUEUE_EVENT } from '@/lib/offline/db';
 import { syncQueue } from '@/lib/offline/sync';
@@ -195,28 +194,8 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
     return map;
   }, [todayInspections, queue, isMonthly, currentPeriodKey, bundle.user.name]);
 
-  // Daftar gudang penugasan petugas (WH2, WH3, WH4, dll)
-  const assignedWarehouses = useMemo(() => {
-    const map = new Map<string, string>();
-    bundle.hydrants.forEach((h) => {
-      const whId = (h.warehouse_id || '').toLowerCase();
-      if (whId && !map.has(whId)) {
-        map.set(whId, h.warehouse_name || whId.toUpperCase());
-      }
-    });
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-  }, [bundle.hydrants]);
-
-  // Filter gudang aktif di antarmuka petugas
-  const [selectedWarehouseFilter, setSelectedWarehouseFilter] = useState<string>('all');
-
-  // Titik hydrant setelah difilter gudang yang dipilih petugas
-  const filteredHydrants = useMemo(() => {
-    if (selectedWarehouseFilter === 'all') return bundle.hydrants;
-    return bundle.hydrants.filter(
-      (h) => (h.warehouse_id || '').toLowerCase() === selectedWarehouseFilter.toLowerCase()
-    );
-  }, [bundle.hydrants, selectedWarehouseFilter]);
+  // Seluruh titik hydrant penugasan petugas
+  const filteredHydrants = bundle.hydrants;
 
   // Daftar titik yang SUDAH dicek periode ini (dari gudang yang dipilih)
   const checkedHydrants = useMemo(() => {
@@ -336,59 +315,6 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
         </span>
       </div>
 
-      {/* 2b. PILIHAN FILTER GUDANG JIKA PETUGAS MEMILIKI > 1 PENUGASAN WH */}
-      {assignedWarehouses.length > 1 && (
-        <div className="space-y-1.5 p-2.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs">
-          <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
-            <span className="flex items-center gap-1.5">
-              <Building2 size={13} className="text-primary" />
-              <span>Area Gudang ({assignedWarehouses.length} Gudang Ditugaskan):</span>
-            </span>
-            {selectedWarehouseFilter !== 'all' && (
-              <button
-                type="button"
-                onClick={() => setSelectedWarehouseFilter('all')}
-                className="text-[10px] text-primary hover:underline font-bold"
-              >
-                Reset Filter
-              </button>
-            )}
-          </div>
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
-            <button
-              type="button"
-              onClick={() => setSelectedWarehouseFilter('all')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all select-none active:scale-95 ${
-                selectedWarehouseFilter === 'all'
-                  ? 'bg-primary text-white shadow-2xs'
-                  : 'bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              Semua ({bundle.hydrants.length})
-            </button>
-            {assignedWarehouses.map((wh) => {
-              const count = bundle.hydrants.filter(
-                (h) => (h.warehouse_id || '').toLowerCase() === wh.id.toLowerCase()
-              ).length;
-              const isSelected = selectedWarehouseFilter.toLowerCase() === wh.id.toLowerCase();
-              return (
-                <button
-                  type="button"
-                  key={wh.id}
-                  onClick={() => setSelectedWarehouseFilter(wh.id)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all select-none active:scale-95 ${
-                    isSelected
-                      ? 'bg-primary text-white shadow-2xs'
-                      : 'bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  Gudang {wh.name.replace(/^gudang\s+/i, '')} ({count})
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* 3. TOMBOL UTAMA: MULAI PERIKSA HYDRANT (SCAN QR) */}
       <div>
