@@ -2,16 +2,32 @@
 
 import { useAuth } from '@/lib/firebase/auth-context';
 import { useEffect, useState } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/client';
 import { Card } from '@/components/ui';
-import { Image as ImageIcon, Building2, Filter, X, ChevronRight, Eye, FileText, Loader2, Download } from 'lucide-react';
+import { Image as ImageIcon, Building2, Filter, X, ChevronRight, Eye, FileText, Loader2, Download, Calendar } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { monthRange, monthLabel, jakartaMonth } from '@/lib/period';
 
+const MONTHS_LIST = [
+  { num: '01', name: 'Januari' },
+  { num: '02', name: 'Februari' },
+  { num: '03', name: 'Maret' },
+  { num: '04', name: 'April' },
+  { num: '05', name: 'Mei' },
+  { num: '06', name: 'Juni' },
+  { num: '07', name: 'Juli' },
+  { num: '08', name: 'Agustus' },
+  { num: '09', name: 'September' },
+  { num: '10', name: 'Oktober' },
+  { num: '11', name: 'November' },
+  { num: '12', name: 'Desember' },
+];
+
 export default function RiwayatChecksheetPage() {
   const [loading, setLoading] = useState(true);
+  const [frequency, setFrequency] = useState<'harian' | 'bulanan'>('harian');
   const [warehouses, setWarehouses] = useState<any[]>([]);
   const [hydrants, setHydrants] = useState<any[]>([]);
   const [items, setItems] = useState<any[]>([]);
@@ -23,6 +39,7 @@ export default function RiwayatChecksheetPage() {
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>('all');
   const [selectedHydrantId, setSelectedHydrantId] = useState<string>('');
   const [currentMonth, setCurrentMonth] = useState<string>(jakartaMonth());
+  const [currentYear, setCurrentYear] = useState<string>(new Date().getFullYear().toString());
 
   // Modal Foto Preview
   const [previewPhotos, setPreviewPhotos] = useState<{ photos: string[]; title: string } | null>(null);
@@ -30,13 +47,20 @@ export default function RiwayatChecksheetPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [wSnap, hSnap, iSnap, insSnap, pSnap] = await Promise.all([
+        const [wSnap, hSnap, iSnap, insSnap, pSnap, freqSnap] = await Promise.all([
           getDocs(collection(db, 'warehouses')),
           getDocs(collection(db, 'hydrants')),
           getDocs(collection(db, 'checklist_items')),
           getDocs(collection(db, 'inspections')),
           getDocs(collection(db, 'profiles')),
+          getDoc(doc(db, 'app_settings', 'inspection_frequency')),
         ]);
+
+        if (freqSnap.exists() && freqSnap.data()?.value === 'bulanan') {
+          setFrequency('bulanan');
+        } else {
+          setFrequency('harian');
+        }
 
         const wList: any[] = [];
         wSnap.forEach((d) => wList.push(d.data()));
@@ -93,19 +117,28 @@ export default function RiwayatChecksheetPage() {
   const { days } = monthRange(currentMonth);
 
   const inspectionsByDate: Record<string, any> = {};
+  const inspectionsByMonth: Record<string, any> = {};
   inspections
     .filter((ins) => ins.hydrant_id === activeHydrant?.id)
     .forEach((ins) => {
       const d = ins.inspected_at?.slice(0, 10);
       if (d) inspectionsByDate[d] = ins;
+
+      const mKey = ins.inspected_at?.slice(0, 7);
+      if (mKey) {
+        if (!inspectionsByMonth[mKey] || ins.inspected_at > inspectionsByMonth[mKey].inspected_at) {
+          inspectionsByMonth[mKey] = ins;
+        }
+      }
     });
 
-  // Handler Cetak PDF Checksheet (Tepat 1 Halaman A4 Landscape, 31 Hari Lengkap)
+  // Handler Cetak PDF Checksheet (Tepat 1 Halaman A4 Landscape)
   const handleExportPdf = () => {
     if (!activeHydrant) return;
     setExportingPdf(true);
     try {
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const isMonthly = frequency === 'bulanan';
 
       // 1. Header Judul & Kop Dokumen Resmi
       doc.setFont('helvetica', 'bold');
@@ -116,13 +149,20 @@ export default function RiwayatChecksheetPage() {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7);
       doc.setTextColor(100, 116, 139);
-      doc.text('FORM K3: FM-HSE-HYD-01', 287, 7.5, { align: 'right' });
+      doc.text(isMonthly ? 'FORM K3: FM-HSE-HYD-M01' : 'FORM K3: FM-HSE-HYD-01', 287, 7.5, { align: 'right' });
 
       // Judul Utama Dokumen
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(12.5);
       doc.setTextColor(15, 23, 42);
-      doc.text('LEMBAR PEMERIKSAAN HYDRANT BOX', 148.5, 11.5, { align: 'center' });
+      doc.text(
+        isMonthly
+          ? 'LEMBAR PEMERIKSAAN HYDRANT BOX BULANAN (TAHUNAN)'
+          : 'LEMBAR PEMERIKSAAN HYDRANT BOX',
+        148.5,
+        11.5,
+        { align: 'center' }
+      );
 
       // Garis Divider Tipis di Bawah Judul
       doc.setDrawColor(226, 232, 240);
@@ -180,7 +220,7 @@ export default function RiwayatChecksheetPage() {
       doc.setFontSize(7.2);
       doc.text(String(activeHydrant.type || 'BOX HYDRANT').toUpperCase(), 141, 22.5);
 
-      // --- Kolom 3 (Kanan: Posisi & Periode Bulan) ---
+      // --- Kolom 3 (Kanan: Posisi & Periode) ---
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7);
       doc.setTextColor(15, 23, 42);
@@ -197,120 +237,249 @@ export default function RiwayatChecksheetPage() {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7);
       doc.setTextColor(15, 23, 42);
-      doc.text('PERIODE BULAN', 200, 22.5);
+      doc.text(isMonthly ? 'PERIODE TAHUN' : 'PERIODE BULAN', 200, 22.5);
       doc.text(':', 227, 22.5);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7.5);
       doc.setTextColor(16, 120, 60);
-      doc.text(String(monthLabel(currentMonth)).toUpperCase(), 230, 22.5);
+      doc.text(
+        isMonthly ? `TAHUN ${currentYear}` : String(monthLabel(currentMonth)).toUpperCase(),
+        230,
+        22.5
+      );
 
-      // 3. Data Baris Tabel 31 Hari (Tanpa Kolom Foto Kondisi)
+      // 3. Data Baris Tabel
       const checklistItems = items ?? [];
-      const tableHeaders = [
-        'TGL',
-        ...checklistItems.map((it) => it.name.toUpperCase()),
-        'CATATAN KENDALA / KONDISI',
-        'PETUGAS PEMERIKSA',
-      ];
 
-      // Alokasi Lebar Kolom Presisi (Total 277 mm)
-      const colTglWidth = 9;
-      const colCatatanWidth = 56;
-      const colPetugasWidth = 36;
-      const remainingWidth = 277 - colTglWidth - colCatatanWidth - colPetugasWidth; // 176 mm
-      const itemColWidth = checklistItems.length > 0 ? remainingWidth / checklistItems.length : 30;
+      if (isMonthly) {
+        // MODE BULANAN: 12 Baris (Januari s/d Desember)
+        const tableHeaders = [
+          'NO',
+          'BULAN',
+          'TGL CEK',
+          ...checklistItems.map((it) => it.name.toUpperCase()),
+          'CATATAN KENDALA / KONDISI FISIK',
+          'PETUGAS PEMERIKSA',
+        ];
 
-      const columnStylesConfig: Record<number, any> = {
-        0: { cellWidth: colTglWidth, halign: 'center', fontStyle: 'bold' },
-        [tableHeaders.length - 2]: { cellWidth: colCatatanWidth, halign: 'left', overflow: 'ellipsize' },
-        [tableHeaders.length - 1]: { cellWidth: colPetugasWidth, halign: 'center', overflow: 'ellipsize' },
-      };
+        const colNoWidth = 8;
+        const colBulanWidth = 24;
+        const colTglWidth = 18;
+        const colCatatanWidth = 56;
+        const colPetugasWidth = 36;
+        const remainingWidth = 277 - colNoWidth - colBulanWidth - colTglWidth - colCatatanWidth - colPetugasWidth; // 135 mm
+        const itemColWidth = checklistItems.length > 0 ? remainingWidth / checklistItems.length : 33.75;
 
-      checklistItems.forEach((_, idx) => {
-        columnStylesConfig[idx + 1] = { cellWidth: itemColWidth, halign: 'center' };
-      });
+        const columnStylesConfig: Record<number, any> = {
+          0: { cellWidth: colNoWidth, halign: 'center', fontStyle: 'bold' },
+          1: { cellWidth: colBulanWidth, halign: 'center', fontStyle: 'bold' },
+          2: { cellWidth: colTglWidth, halign: 'center' },
+          [tableHeaders.length - 2]: { cellWidth: colCatatanWidth, halign: 'left', overflow: 'ellipsize' },
+          [tableHeaders.length - 1]: { cellWidth: colPetugasWidth, halign: 'center', overflow: 'ellipsize' },
+        };
 
-      const tableRows = days.map((dayStr) => {
-        const ins = inspectionsByDate[dayStr];
-        const dayNum = dayStr.slice(8);
-        const resMap = new Map((ins?.results ?? []).map((r: any) => [r.checklistItemId, r.result]));
-
-        const rowValues = [dayNum];
-        checklistItems.forEach((it) => {
-          const res = resMap.get(it.id);
-          if (res === 'baik') rowValues.push('✓ Baik');
-          else if (res === 'tidak_baik') rowValues.push('✕ Rusak');
-          else rowValues.push('-');
+        checklistItems.forEach((_, idx) => {
+          columnStylesConfig[idx + 3] = { cellWidth: itemColWidth, halign: 'center' };
         });
 
-        const noteText = ins?.notes || (ins ? 'Nihil' : '-');
-        rowValues.push(noteText.length > 45 ? noteText.slice(0, 42) + '…' : noteText);
+        const tableRows = MONTHS_LIST.map((m, idx) => {
+          const monthKey = `${currentYear}-${m.num}`;
+          const ins = inspectionsByMonth[monthKey];
+          const tglCek = ins?.inspected_at
+            ? new Date(ins.inspected_at).toLocaleDateString('id-ID', {
+                day: '2-digit',
+                month: '2-digit',
+                year: '2-digit',
+              })
+            : '-';
+          const resMap = new Map((ins?.results ?? []).map((r: any) => [r.checklistItemId, r.result]));
 
-        const inspector = profiles.find((p) => p.id === ins?.user_id)?.name || (ins ? 'Petugas' : '-');
-        rowValues.push(ins ? `${inspector}` : '-');
-        return rowValues;
-      });
+          const rowValues = [String(idx + 1), m.name, tglCek];
+          checklistItems.forEach((it) => {
+            const res = resMap.get(it.id);
+            if (res === 'baik') rowValues.push('✓ Baik');
+            else if (res === 'tidak_baik') rowValues.push('✕ Rusak');
+            else rowValues.push('-');
+          });
 
-      autoTable(doc, {
-        head: [tableHeaders],
-        body: tableRows,
-        startY: 25.5,
-        theme: 'grid',
-        pageBreak: 'avoid',
-        rowPageBreak: 'avoid',
-        styles: {
-          fontSize: 6.2,
-          cellPadding: 0.6,
-          minCellHeight: 3.2,
-          halign: 'center',
-          valign: 'middle',
-          textColor: [30, 41, 59],
-          lineColor: [203, 213, 225],
-          lineWidth: 0.1,
-          overflow: 'ellipsize',
-        },
-        headStyles: {
-          fontSize: 6.6,
-          cellPadding: 0.8,
-          minCellHeight: 4,
-          fillColor: [241, 245, 249],
-          textColor: [15, 23, 42],
-          fontStyle: 'bold',
-          lineColor: [148, 163, 184],
-          lineWidth: 0.15,
-        },
-        columnStyles: columnStylesConfig,
-        didParseCell: (data) => {
-          if (data.section === 'body') {
-            const val = String(data.cell.raw);
-            if (val.includes('✓ Baik')) {
-              data.cell.styles.textColor = [16, 120, 60];
-              data.cell.styles.fontStyle = 'bold';
-            } else if (val.includes('✕ Rusak')) {
-              data.cell.styles.textColor = [200, 25, 25];
-              data.cell.styles.fontStyle = 'bold';
-            } else if (data.column.index === tableHeaders.length - 1 && val !== '-') {
-              data.cell.styles.textColor = [15, 23, 42];
-              data.cell.styles.fontStyle = 'bold';
+          const noteText = ins?.notes || (ins ? 'Nihil' : '-');
+          rowValues.push(noteText.length > 45 ? noteText.slice(0, 42) + '…' : noteText);
+
+          const inspector = profiles.find((p) => p.id === ins?.user_id)?.name || (ins ? 'Petugas' : '-');
+          rowValues.push(ins ? `${inspector}` : '-');
+          return rowValues;
+        });
+
+        autoTable(doc, {
+          head: [tableHeaders],
+          body: tableRows,
+          startY: 25.5,
+          theme: 'grid',
+          pageBreak: 'avoid',
+          rowPageBreak: 'avoid',
+          styles: {
+            fontSize: 7,
+            cellPadding: 1.1,
+            minCellHeight: 5.6,
+            halign: 'center',
+            valign: 'middle',
+            textColor: [30, 41, 59],
+            lineColor: [203, 213, 225],
+            lineWidth: 0.1,
+            overflow: 'ellipsize',
+          },
+          headStyles: {
+            fontSize: 7.2,
+            cellPadding: 1.2,
+            minCellHeight: 5,
+            fillColor: [241, 245, 249],
+            textColor: [15, 23, 42],
+            fontStyle: 'bold',
+            lineColor: [148, 163, 184],
+            lineWidth: 0.15,
+          },
+          columnStyles: columnStylesConfig,
+          didParseCell: (data) => {
+            if (data.section === 'body') {
+              const val = String(data.cell.raw);
+              if (val.includes('✓ Baik')) {
+                data.cell.styles.textColor = [16, 120, 60];
+                data.cell.styles.fontStyle = 'bold';
+              } else if (val.includes('✕ Rusak')) {
+                data.cell.styles.textColor = [200, 25, 25];
+                data.cell.styles.fontStyle = 'bold';
+              } else if (data.column.index === tableHeaders.length - 1 && val !== '-') {
+                data.cell.styles.textColor = [15, 23, 42];
+                data.cell.styles.fontStyle = 'bold';
+              }
             }
-          }
-        },
-        margin: { left: 10, right: 10, top: 5, bottom: 5 },
-      });
+          },
+          margin: { left: 10, right: 10, top: 5, bottom: 5 },
+        });
+      } else {
+        // MODE HARIAN: 31 Hari Lengkap
+        const tableHeaders = [
+          'TGL',
+          ...checklistItems.map((it) => it.name.toUpperCase()),
+          'CATATAN KENDALA / KONDISI',
+          'PETUGAS PEMERIKSA',
+        ];
+
+        const colTglWidth = 9;
+        const colCatatanWidth = 56;
+        const colPetugasWidth = 36;
+        const remainingWidth = 277 - colTglWidth - colCatatanWidth - colPetugasWidth;
+        const itemColWidth = checklistItems.length > 0 ? remainingWidth / checklistItems.length : 30;
+
+        const columnStylesConfig: Record<number, any> = {
+          0: { cellWidth: colTglWidth, halign: 'center', fontStyle: 'bold' },
+          [tableHeaders.length - 2]: { cellWidth: colCatatanWidth, halign: 'left', overflow: 'ellipsize' },
+          [tableHeaders.length - 1]: { cellWidth: colPetugasWidth, halign: 'center', overflow: 'ellipsize' },
+        };
+
+        checklistItems.forEach((_, idx) => {
+          columnStylesConfig[idx + 1] = { cellWidth: itemColWidth, halign: 'center' };
+        });
+
+        const tableRows = days.map((dayStr) => {
+          const ins = inspectionsByDate[dayStr];
+          const dayNum = dayStr.slice(8);
+          const resMap = new Map((ins?.results ?? []).map((r: any) => [r.checklistItemId, r.result]));
+
+          const rowValues = [dayNum];
+          checklistItems.forEach((it) => {
+            const res = resMap.get(it.id);
+            if (res === 'baik') rowValues.push('✓ Baik');
+            else if (res === 'tidak_baik') rowValues.push('✕ Rusak');
+            else rowValues.push('-');
+          });
+
+          const noteText = ins?.notes || (ins ? 'Nihil' : '-');
+          rowValues.push(noteText.length > 45 ? noteText.slice(0, 42) + '…' : noteText);
+
+          const inspector = profiles.find((p) => p.id === ins?.user_id)?.name || (ins ? 'Petugas' : '-');
+          rowValues.push(ins ? `${inspector}` : '-');
+          return rowValues;
+        });
+
+        autoTable(doc, {
+          head: [tableHeaders],
+          body: tableRows,
+          startY: 25.5,
+          theme: 'grid',
+          pageBreak: 'avoid',
+          rowPageBreak: 'avoid',
+          styles: {
+            fontSize: 6.2,
+            cellPadding: 0.6,
+            minCellHeight: 3.2,
+            halign: 'center',
+            valign: 'middle',
+            textColor: [30, 41, 59],
+            lineColor: [203, 213, 225],
+            lineWidth: 0.1,
+            overflow: 'ellipsize',
+          },
+          headStyles: {
+            fontSize: 6.6,
+            cellPadding: 0.8,
+            minCellHeight: 4,
+            fillColor: [241, 245, 249],
+            textColor: [15, 23, 42],
+            fontStyle: 'bold',
+            lineColor: [148, 163, 184],
+            lineWidth: 0.15,
+          },
+          columnStyles: columnStylesConfig,
+          didParseCell: (data) => {
+            if (data.section === 'body') {
+              const val = String(data.cell.raw);
+              if (val.includes('✓ Baik')) {
+                data.cell.styles.textColor = [16, 120, 60];
+                data.cell.styles.fontStyle = 'bold';
+              } else if (val.includes('✕ Rusak')) {
+                data.cell.styles.textColor = [200, 25, 25];
+                data.cell.styles.fontStyle = 'bold';
+              } else if (data.column.index === tableHeaders.length - 1 && val !== '-') {
+                data.cell.styles.textColor = [15, 23, 42];
+                data.cell.styles.fontStyle = 'bold';
+              }
+            }
+          },
+          margin: { left: 10, right: 10, top: 5, bottom: 5 },
+        });
+      }
 
       // 4. Footer & Tanda Tangan Kompak di 1 Halaman yang sama
       const finalY = (doc as any).lastAutoTable?.finalY || 135;
       const footY = finalY + 4;
 
-      // Kolom Kiri: Ketentuan K3 & Timestamp Cetak
       doc.setFontSize(6.8);
       doc.setFont('helvetica', 'bold');
-      doc.text('KETENTUAN INSPEKSI K3 & HSE:', 10, footY + 3);
+      doc.text(
+        isMonthly ? 'KETENTUAN INSPEKSI BULANAN K3 & HSE:' : 'KETENTUAN INSPEKSI K3 & HSE:',
+        10,
+        footY + 3
+      );
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(6);
-      doc.text('1. Pemeriksaan fisik hydrant box wajib dilaksanakan rutin setiap hari kerja.', 10, footY + 6.5);
-      doc.text('2. Segera laporkan ke tim K3 jika ditemukan kendala, segel rusak, atau tekanan abnormal.', 10, footY + 10);
-      doc.text(`Dicetak digital melalui Sistem CEK HIDRAN: ${new Date().toLocaleString('id-ID')}`, 10, footY + 14);
+      doc.text(
+        isMonthly
+          ? '1. Setiap titik hydrant box wajib diperiksa rutin minimal 1 kali per bulan kalender.'
+          : '1. Pemeriksaan fisik hydrant box wajib dilaksanakan rutin setiap hari kerja.',
+        10,
+        footY + 6.5
+      );
+      doc.text(
+        '2. Segera laporkan ke tim K3 jika ditemukan kendala, segel rusak, atau tekanan abnormal.',
+        10,
+        footY + 10
+      );
+      doc.text(
+        `Dicetak digital melalui Sistem CEK HIDRAN: ${new Date().toLocaleString('id-ID')}`,
+        10,
+        footY + 14
+      );
 
       // Kolom Tengah: Petugas Pelaksana
       doc.setFontSize(7);
@@ -336,7 +505,10 @@ export default function RiwayatChecksheetPage() {
         doc.deletePage(doc.getNumberOfPages());
       }
 
-      doc.save(`Checksheet-${activeHydrant.number}-${currentMonth}.pdf`);
+      const fileName = isMonthly
+        ? `Checksheet-${activeHydrant.number}-${currentYear}-Tahunan.pdf`
+        : `Checksheet-${activeHydrant.number}-${currentMonth}.pdf`;
+      doc.save(fileName);
     } catch (err) {
       console.error(err);
       alert('Gagal membuat file PDF.');
@@ -359,7 +531,9 @@ export default function RiwayatChecksheetPage() {
       <div className="pb-2 border-b border-slate-200/80">
         <h1 className="text-2xl font-black tracking-wider text-slate-900 uppercase">RIWAYAT CHECKSHEET HYDRANT</h1>
         <p className="text-xs sm:text-sm text-slate-500 mt-1 uppercase font-semibold">
-          FORMAT LEMBAR FISIK RESMI PEMERIKSAAN PER TITIK HYDRANT DAN TABEL MATRIKS 31 HARI
+          {frequency === 'bulanan'
+            ? 'FORMAT LEMBAR FISIK RESMI PEMERIKSAAN PER TITIK HYDRANT DAN TABEL MATRIKS 12 BULAN (TAHUNAN)'
+            : 'FORMAT LEMBAR FISIK RESMI PEMERIKSAAN PER TITIK HYDRANT DAN TABEL MATRIKS 31 HARI'}
         </p>
       </div>
 
@@ -406,15 +580,31 @@ export default function RiwayatChecksheetPage() {
             </select>
           </div>
 
-          {/* Filter 3: Periode Bulan */}
+          {/* Filter 3: Periode Bulan (Harian) atau Periode Tahun (Bulanan) */}
           <div className="md:col-span-3">
-            <label className="label text-xs font-bold text-slate-700 mb-1.5 block">Periode Bulan</label>
-            <input
-              type="month"
-              value={currentMonth}
-              onChange={(e) => setCurrentMonth(e.target.value)}
-              className="input text-xs font-medium"
-            />
+            <label className="label text-xs font-bold text-slate-700 mb-1.5 block">
+              {frequency === 'bulanan' ? 'Periode Tahun' : 'Periode Bulan'}
+            </label>
+            {frequency === 'bulanan' ? (
+              <select
+                value={currentYear}
+                onChange={(e) => setCurrentYear(e.target.value)}
+                className="input text-xs font-semibold"
+              >
+                {[2024, 2025, 2026, 2027, 2028].map((yr) => (
+                  <option key={yr} value={yr}>
+                    Tahun {yr}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="month"
+                value={currentMonth}
+                onChange={(e) => setCurrentMonth(e.target.value)}
+                className="input text-xs font-medium"
+              />
+            )}
           </div>
         </div>
       </Card>
@@ -429,7 +619,9 @@ export default function RiwayatChecksheetPage() {
                   CEK HIDRAN · DEPARTEMEN K3 & HSE
                 </span>
                 <div className="font-extrabold text-base sm:text-lg text-slate-900 uppercase tracking-wider">
-                  LEMBAR PEMERIKSAAN HYDRANT BOX
+                  {frequency === 'bulanan'
+                    ? 'LEMBAR PEMERIKSAAN HYDRANT BOX BULANAN (TAHUNAN)'
+                    : 'LEMBAR PEMERIKSAAN HYDRANT BOX'}
                 </div>
               </div>
               <button
@@ -467,8 +659,12 @@ export default function RiwayatChecksheetPage() {
                 <strong className="font-bold text-slate-950 uppercase">{activeHydrant.location_name}</strong>
               </div>
               <div>
-                <span className="text-slate-500 font-medium">PERIODE BULAN:</span>{' '}
-                <strong className="text-primary font-bold uppercase">{monthLabel(currentMonth)}</strong>
+                <span className="text-slate-500 font-medium">
+                  {frequency === 'bulanan' ? 'PERIODE TAHUN:' : 'PERIODE BULAN:'}
+                </span>{' '}
+                <strong className="text-primary font-bold uppercase">
+                  {frequency === 'bulanan' ? `TAHUN ${currentYear}` : monthLabel(currentMonth)}
+                </strong>
               </div>
             </div>
           </div>
@@ -477,7 +673,15 @@ export default function RiwayatChecksheetPage() {
             <table className="w-full text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-100 text-slate-800 text-center font-bold">
-                  <th className="p-2 border border-slate-400 w-16">TGL</th>
+                  {frequency === 'bulanan' ? (
+                    <>
+                      <th className="p-2 border border-slate-400 w-12">NO</th>
+                      <th className="p-2 border border-slate-400 min-w-[90px]">BULAN</th>
+                      <th className="p-2 border border-slate-400 min-w-[80px]">TGL CEK</th>
+                    </>
+                  ) : (
+                    <th className="p-2 border border-slate-400 w-16">TGL</th>
+                  )}
                   {items.map((it) => (
                     <th key={it.id} className="p-2 border border-slate-400 min-w-[120px] uppercase">
                       {it.name}
@@ -489,84 +693,207 @@ export default function RiwayatChecksheetPage() {
                 </tr>
               </thead>
               <tbody>
-                {days.map((dayStr) => {
-                  const ins = inspectionsByDate[dayStr];
-                  const dayNum = dayStr.slice(8);
-                  const resultMap = new Map(
-                    (ins?.results ?? []).map((r: any) => [r.checklistItemId, r.result])
-                  );
+                {frequency === 'bulanan' ? (
+                  /* TAMPILAN MATRIKS 12 BULAN (TAHUNAN) */
+                  MONTHS_LIST.map((m, idx) => {
+                    const monthKey = `${currentYear}-${m.num}`;
+                    const ins = inspectionsByMonth[monthKey];
+                    const tglCek = ins?.inspected_at
+                      ? new Date(ins.inspected_at).toLocaleDateString('id-ID', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                        })
+                      : '-';
+                    const resultMap = new Map(
+                      (ins?.results ?? []).map((r: any) => [r.checklistItemId, r.result])
+                    );
+                    const isCurrentMonth = jakartaMonth() === monthKey;
 
-                  return (
-                    <tr key={dayStr} className={`hover:bg-slate-50/80 ${ins ? 'bg-white' : 'bg-slate-50/30'}`}>
-                      <td className="p-2 border border-slate-400 text-center font-bold text-slate-700">
-                        {dayNum}
-                      </td>
+                    return (
+                      <tr
+                        key={m.num}
+                        className={`hover:bg-slate-50/80 ${
+                          isCurrentMonth
+                            ? 'bg-teal-50/50 font-medium'
+                            : ins
+                            ? 'bg-white'
+                            : 'bg-slate-50/30 text-slate-400'
+                        }`}
+                      >
+                        <td className="p-2 border border-slate-400 text-center font-bold text-slate-700">
+                          {idx + 1}
+                        </td>
 
-                      {items.map((it) => {
-                        const res = resultMap.get(it.id);
-                        return (
-                          <td key={it.id} className="p-2 border border-slate-400 text-center font-medium">
-                            {res === 'baik' && (
-                              <span className="text-emerald-700 font-bold inline-flex items-center gap-0.5">
-                                ✓ Baik
-                              </span>
+                        <td className="p-2 border border-slate-400 text-center font-bold text-slate-800">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <span>{m.name}</span>
+                            {isCurrentMonth && (
+                              <span
+                                className="h-1.5 w-1.5 rounded-full bg-teal-600 animate-pulse"
+                                title="Bulan Berjalan"
+                              />
                             )}
-                            {res === 'tidak_baik' && (
-                              <span className="text-red-700 font-bold inline-flex items-center gap-0.5">
-                                ✕ Rusak
+                          </div>
+                        </td>
+
+                        <td className="p-2 border border-slate-400 text-center font-mono text-[11px] font-semibold text-slate-700">
+                          {tglCek}
+                        </td>
+
+                        {items.map((it) => {
+                          const res = resultMap.get(it.id);
+                          return (
+                            <td key={it.id} className="p-2 border border-slate-400 text-center font-medium">
+                              {res === 'baik' && (
+                                <span className="text-emerald-700 font-bold inline-flex items-center gap-0.5">
+                                  ✓ Baik
+                                </span>
+                              )}
+                              {res === 'tidak_baik' && (
+                                <span className="text-red-700 font-bold inline-flex items-center gap-0.5">
+                                  ✕ Rusak
+                                </span>
+                              )}
+                              {!res && <span className="text-slate-300">-</span>}
+                            </td>
+                          );
+                        })}
+
+                        <td className="p-2 border border-slate-400 text-slate-700 text-xs">
+                          {ins?.notes || (ins ? <span className="text-slate-400 italic">Nihil</span> : '-')}
+                        </td>
+
+                        <td className="p-2 border border-slate-400 text-center">
+                          {ins?.photos && ins.photos.length > 0 ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPreviewPhotos({
+                                  photos: ins.photos,
+                                  title: `Foto Pemeriksaan ${activeHydrant.number} (${m.name} ${currentYear})`,
+                                })
+                              }
+                              className="inline-flex items-center gap-1 text-primary hover:underline font-semibold text-xs py-0.5 px-2 rounded bg-primary-50"
+                            >
+                              <ImageIcon size={13} /> {ins.photos.length} Foto
+                            </button>
+                          ) : (
+                            <span className="text-slate-300">-</span>
+                          )}
+                        </td>
+
+                        <td className="p-2 border border-slate-400 text-center">
+                          {ins ? (
+                            <div className="space-y-0.5">
+                              <span className="font-semibold text-slate-900 block text-xs">
+                                {profiles.find((p) => p.id === ins?.user_id)?.name || 'Petugas'}
                               </span>
-                            )}
-                            {!res && <span className="text-slate-300">-</span>}
-                          </td>
-                        );
-                      })}
+                              {ins.signature_url ? (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPreviewPhotos({
+                                      photos: [ins.signature_url],
+                                      title: `Tanda Tangan Petugas (${m.name} ${currentYear})`,
+                                    })
+                                  }
+                                  className="text-emerald-700 font-semibold text-[10px] hover:underline block mx-auto"
+                                >
+                                  Paraf ✓
+                                </button>
+                              ) : (
+                                <span className="text-emerald-700 font-semibold text-[10px] block">Paraf ✓</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-slate-300">-</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  /* TAMPILAN MATRIKS 31 HARI (HARIAN) */
+                  days.map((dayStr) => {
+                    const ins = inspectionsByDate[dayStr];
+                    const dayNum = dayStr.slice(8);
+                    const resultMap = new Map(
+                      (ins?.results ?? []).map((r: any) => [r.checklistItemId, r.result])
+                    );
 
-                      <td className="p-2 border border-slate-400 text-slate-700 text-xs">
-                        {ins?.notes || (ins ? <span className="text-slate-400 italic">Nihil</span> : '-')}
-                      </td>
+                    return (
+                      <tr key={dayStr} className={`hover:bg-slate-50/80 ${ins ? 'bg-white' : 'bg-slate-50/30'}`}>
+                        <td className="p-2 border border-slate-400 text-center font-bold text-slate-700">
+                          {dayNum}
+                        </td>
 
-                      <td className="p-2 border border-slate-400 text-center">
-                        {ins?.photos && ins.photos.length > 0 ? (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setPreviewPhotos({
-                                photos: ins.photos,
-                                title: `Foto Pemeriksaan ${activeHydrant.number} (${dayStr})`,
-                              })
-                            }
-                            className="inline-flex items-center gap-1 text-primary hover:underline font-semibold text-xs py-0.5 px-2 rounded bg-primary-50"
-                          >
-                            <ImageIcon size={13} /> {ins.photos.length} Foto
-                          </button>
-                        ) : (
-                          <span className="text-slate-300">-</span>
-                        )}
-                      </td>
+                        {items.map((it) => {
+                          const res = resultMap.get(it.id);
+                          return (
+                            <td key={it.id} className="p-2 border border-slate-400 text-center font-medium">
+                              {res === 'baik' && (
+                                <span className="text-emerald-700 font-bold inline-flex items-center gap-0.5">
+                                  ✓ Baik
+                                </span>
+                              )}
+                              {res === 'tidak_baik' && (
+                                <span className="text-red-700 font-bold inline-flex items-center gap-0.5">
+                                  ✕ Rusak
+                                </span>
+                              )}
+                              {!res && <span className="text-slate-300">-</span>}
+                            </td>
+                          );
+                        })}
 
-                      <td className="p-2 border border-slate-400 text-center">
-                        {ins?.signature_url ? (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setPreviewPhotos({
-                                photos: [ins.signature_url],
-                                title: `Tanda Tangan Petugas (${dayStr})`,
-                              })
-                            }
-                            className="text-emerald-700 font-semibold text-[11px] hover:underline"
-                          >
-                            Paraf ✓
-                          </button>
-                        ) : ins ? (
-                          <span className="text-emerald-700 font-semibold text-[11px]">Paraf ✓</span>
-                        ) : (
-                          <span className="text-slate-300">-</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                        <td className="p-2 border border-slate-400 text-slate-700 text-xs">
+                          {ins?.notes || (ins ? <span className="text-slate-400 italic">Nihil</span> : '-')}
+                        </td>
+
+                        <td className="p-2 border border-slate-400 text-center">
+                          {ins?.photos && ins.photos.length > 0 ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPreviewPhotos({
+                                  photos: ins.photos,
+                                  title: `Foto Pemeriksaan ${activeHydrant.number} (${dayStr})`,
+                                })
+                              }
+                              className="inline-flex items-center gap-1 text-primary hover:underline font-semibold text-xs py-0.5 px-2 rounded bg-primary-50"
+                            >
+                              <ImageIcon size={13} /> {ins.photos.length} Foto
+                            </button>
+                          ) : (
+                            <span className="text-slate-300">-</span>
+                          )}
+                        </td>
+
+                        <td className="p-2 border border-slate-400 text-center">
+                          {ins?.signature_url ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPreviewPhotos({
+                                  photos: [ins.signature_url],
+                                  title: `Tanda Tangan Petugas (${dayStr})`,
+                                })
+                              }
+                              className="text-emerald-700 font-semibold text-[11px] hover:underline"
+                            >
+                              Paraf ✓
+                            </button>
+                          ) : ins ? (
+                            <span className="text-emerald-700 font-semibold text-[11px]">Paraf ✓</span>
+                          ) : (
+                            <span className="text-slate-300">-</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
