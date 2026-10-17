@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { listQueue, setBundle, QUEUE_EVENT } from '@/lib/offline/db';
 import { syncQueue } from '@/lib/offline/sync';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase/client';
 import { jakartaDate } from '@/lib/period';
 import type { PetugasBundle, QueuedInspection } from '@/lib/types';
@@ -80,6 +80,8 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
   };
 
   const [reinspections, setReinspections] = useState<Record<string, any>>({});
+  // Temuan K3 dari server Firestore
+  const [findings, setFindings] = useState<any[]>([]);
 
   // Frekuensi pemeriksaan aktif (Harian vs Bulanan)
   const isMonthly = bundle.frequency === 'bulanan';
@@ -88,7 +90,10 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
 
   const loadTodayInspections = async () => {
     try {
-      const snap = await getDocs(collection(db, 'inspections'));
+      const [snap, fSnap] = await Promise.all([
+        getDocs(collection(db, 'inspections')),
+        getDocs(collection(db, 'findings')),
+      ]);
       const list: any[] = [];
       const reMap: Record<string, any> = {};
 
@@ -108,10 +113,17 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
           }
         }
       });
+
+      const fList: any[] = [];
+      fSnap.forEach((doc) => {
+        fList.push({ id: doc.id, ...doc.data() });
+      });
+
       setTodayInspections(list);
       setReinspections(reMap);
+      setFindings(fList);
     } catch (e) {
-      console.error('Error fetching inspections:', e);
+      console.error('Error fetching inspections or findings:', e);
     }
   };
 
@@ -126,9 +138,33 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
 
     window.addEventListener(QUEUE_EVENT, onQueueChange);
     window.addEventListener('online', triggerSync);
+
+    // Real-time listener untuk status temuan K3 (otomatis ubah warna saat admin/supervisi update status temuan)
+    let unsubscribeFindings: (() => void) | undefined;
+    try {
+      unsubscribeFindings = onSnapshot(
+        collection(db, 'findings'),
+        (snapshot) => {
+          const fList: any[] = [];
+          snapshot.forEach((doc) => {
+            fList.push({ id: doc.id, ...doc.data() });
+          });
+          setFindings(fList);
+        },
+        (error) => {
+          console.warn('Real-time listener findings error:', error);
+        }
+      );
+    } catch (err) {
+      console.warn('Gagal memasang onSnapshot findings:', err);
+    }
+
     return () => {
       window.removeEventListener(QUEUE_EVENT, onQueueChange);
       window.removeEventListener('online', triggerSync);
+      if (unsubscribeFindings) {
+        unsubscribeFindings();
+      }
     };
   }, [currentPeriodKey, isMonthly]);
 
@@ -209,12 +245,63 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
   // Seluruh titik hydrant penugasan petugas
   const filteredHydrants = bundle.hydrants;
 
+  // Pemetaan temuan K3 aktif (status belum 'selesai') per hydrant
+  const activeFindingsMap = useMemo(() => {
+    const map = new Map<string, any[]>();
+
+    // 1. Dari Firestore: temuan yang statusnya belum 'selesai' ('terbuka' atau 'dalam_perbaikan')
+    findings.forEach((f) => {
+      if (f.hydrant_id && f.status !== 'selesai') {
+        const existing = map.get(f.hydrant_id) || [];
+        existing.push(f);
+        map.set(f.hydrant_id, existing);
+      }
+    });
+
+    // 2. Dari antrean offline IndexedDB: jika ada checklist yang berstatus 'tidak_baik'
+    queue.forEach((q) => {
+      const badResults = (q.results || []).filter((r) => r.result === 'tidak_baik');
+      if (badResults.length > 0 && q.hydrantId) {
+        const existing = map.get(q.hydrantId) || [];
+        badResults.forEach((b) => {
+          existing.push({
+            id: `offline_${q.id}_${b.checklistItemId}`,
+            hydrant_id: q.hydrantId,
+            description: b.notes || 'Kondisi tidak baik terdeteksi saat pemeriksaan (antrean offline)',
+            status: 'terbuka',
+            created_at: q.inspectedAt || q.createdAt,
+            reported_by_name: bundle.user.name,
+            isOffline: true,
+          });
+        });
+        map.set(q.hydrantId, existing);
+      }
+    });
+
+    return map;
+  }, [findings, queue, bundle.user.name]);
+
+  // Pemetaan temuan K3 yang sudah diselesaikan (status === 'selesai') per hydrant
+  const resolvedFindingsMap = useMemo(() => {
+    const map = new Map<string, any[]>();
+    findings.forEach((f) => {
+      if (f.hydrant_id && f.status === 'selesai') {
+        const existing = map.get(f.hydrant_id) || [];
+        existing.push(f);
+        map.set(f.hydrant_id, existing);
+      }
+    });
+    return map;
+  }, [findings]);
+
   // Daftar titik yang SUDAH dicek periode ini (dari gudang yang dipilih)
   const checkedHydrants = useMemo(() => {
     return filteredHydrants
       .filter((h) => combinedInspectedMap.has(h.id))
       .map((h) => {
         const info = combinedInspectedMap.get(h.id);
+        const activeFindings = activeFindingsMap.get(h.id) || [];
+        const resolvedFindings = resolvedFindingsMap.get(h.id) || [];
         return {
           ...h,
           inspectedAt: info?.inspectedAt,
@@ -222,10 +309,18 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
           status: info?.status,
           isOfflineQueue: info?.isOfflineQueue,
           inspectorName: info?.inspectorName || bundle.user.name,
+          activeFindings,
+          resolvedFindings,
+          hasActiveFinding: activeFindings.length > 0,
         };
       })
-      .sort((a, b) => (b.inspectedAt || '').localeCompare(a.inspectedAt || ''));
-  }, [filteredHydrants, combinedInspectedMap, bundle.user.name]);
+      .sort((a, b) => {
+        // Titik yang ada temuan K3 aktif diprioritaskan di baris paling atas
+        if (a.hasActiveFinding && !b.hasActiveFinding) return -1;
+        if (!a.hasActiveFinding && b.hasActiveFinding) return 1;
+        return (b.inspectedAt || '').localeCompare(a.inspectedAt || '');
+      });
+  }, [filteredHydrants, combinedInspectedMap, activeFindingsMap, resolvedFindingsMap, bundle.user.name]);
 
   // Daftar titik yang BELUM dicek periode ini
   const uncheckedHydrants = useMemo(() => {
@@ -234,6 +329,11 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
 
   const checkedCount = checkedHydrants.length;
   const uncheckedCount = uncheckedHydrants.length;
+
+  // Total titik terperiksa yang memiliki temuan K3 aktif
+  const totalActiveFindingsCount = useMemo(() => {
+    return checkedHydrants.filter((h) => h.hasActiveFinding).length;
+  }, [checkedHydrants]);
 
   // Titik yang memerlukan pemeriksaan ulang (re-inspeksi) atas permintaan Admin
   const pendingReinspections = useMemo(() => {
@@ -397,8 +497,14 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
             </span>
             <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-emerald-700 leading-none my-1 tabular-nums">
-            {checkedCount}
+          <div className="text-2xl sm:text-3xl font-black text-emerald-700 leading-none my-1 tabular-nums flex items-baseline justify-between">
+            <span>{checkedCount}</span>
+            {totalActiveFindingsCount > 0 && (
+              <span className="text-[10px] font-black text-red-700 bg-red-100 border border-red-200 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                <AlertTriangle size={11} className="text-red-600 shrink-0" />
+                {totalActiveFindingsCount} Temuan
+              </span>
+            )}
           </div>
           <p className="text-[10px] font-bold text-emerald-700/80 uppercase tracking-wide">
             {isMonthly ? 'BULAN INI TERPERIKSA' : 'HARI INI TERPERIKSA'}
@@ -444,6 +550,11 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
           >
             <CheckCircle2 size={14} className="shrink-0" />
             <span className="truncate">SUDAH DI CEK ({checkedCount})</span>
+            {totalActiveFindingsCount > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[9px] font-black shrink-0">
+                {totalActiveFindingsCount} TEMUAN
+              </span>
+            )}
           </button>
           <button
             type="button"
@@ -469,38 +580,73 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
                 ? formattedTime.split(' ').slice(-2).join(' ')
                 : formattedTime;
 
+              const hasFinding = h.hasActiveFinding;
+
               return (
                 <div
                   key={h.id}
                   className={`rounded-xl border transition-all overflow-hidden ${
-                    isExpanded
-                      ? 'border-emerald-300 bg-white shadow-xs'
-                      : 'border-slate-200/90 bg-white hover:border-emerald-200'
+                    hasFinding
+                      ? isExpanded
+                        ? 'border-red-300 bg-red-50/80 shadow-xs ring-1 ring-red-200'
+                        : 'border-red-200/90 bg-red-50/50 hover:bg-red-50/70 hover:border-red-300'
+                      : isExpanded
+                        ? 'border-emerald-300 bg-white shadow-xs'
+                        : 'border-slate-200/90 bg-white hover:border-emerald-200'
                   }`}
                 >
                   {/* BARIS UTAMA KOMPAK (TINGGI HANYA ~42px) */}
                   <button
                     type="button"
                     onClick={() => setExpandedId(isExpanded ? null : h.id)}
-                    className="w-full px-3 py-2.5 flex items-center justify-between gap-2 text-left select-none active:bg-slate-50 transition-colors"
+                    className={`w-full px-3 py-2.5 flex items-center justify-between gap-2 text-left select-none transition-colors ${
+                      hasFinding ? 'active:bg-red-100/60' : 'active:bg-slate-50'
+                    }`}
                   >
                     {/* Kiri: Nomor Hydrant & Lokasi Ringkas */}
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="inline-flex items-center justify-center min-w-[44px] h-6 px-1.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-black text-xs shrink-0 tracking-wide">
+                      <span
+                        className={`inline-flex items-center justify-center min-w-[44px] h-6 px-1.5 rounded-lg font-black text-xs shrink-0 tracking-wide ${
+                          hasFinding
+                            ? 'bg-red-100 text-red-900 border border-red-300/80'
+                            : 'bg-emerald-50 text-emerald-800 border border-emerald-200/80'
+                        }`}
+                      >
                         {h.number}
                       </span>
                       <div className="min-w-0">
-                        <p className="text-xs font-bold text-slate-800 truncate leading-tight">
+                        <p
+                          className={`text-xs font-bold truncate leading-tight ${
+                            hasFinding ? 'text-red-950' : 'text-slate-800'
+                          }`}
+                        >
                           Gudang {h.warehouse_name.replace(/^gudang\s+/i, '').trim()}
-                          <span className="font-normal text-slate-400 mx-1">•</span>
-                          <span className="font-medium text-slate-600">{h.location_name}</span>
+                          <span
+                            className={`font-normal mx-1 ${
+                              hasFinding ? 'text-red-400' : 'text-slate-400'
+                            }`}
+                          >
+                            •
+                          </span>
+                          <span
+                            className={`font-medium ${
+                              hasFinding ? 'text-red-800' : 'text-slate-600'
+                            }`}
+                          >
+                            {h.location_name}
+                          </span>
                         </p>
                       </div>
                     </div>
 
-                    {/* Kanan: Status Waktu / Offline / Reinspeksi & Panah Expand */}
+                    {/* Kanan: Status Waktu / Temuan / Offline / Reinspeksi & Panah Expand */}
                     <div className="flex items-center gap-2 shrink-0">
-                      {reinspections[h.id] ? (
+                      {hasFinding ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-md bg-red-100 text-red-800 border border-red-300/80 uppercase">
+                          <AlertTriangle size={11} className="text-red-700 shrink-0" />
+                          <span>TEMUAN K3</span>
+                        </span>
+                      ) : reinspections[h.id] ? (
                         <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-md bg-blue-100 text-blue-900 border border-blue-300 uppercase animate-pulse">
                           <AlertTriangle size={11} className="text-blue-700 shrink-0" />
                           <span>REVISI DIMINTA</span>
@@ -515,7 +661,7 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
                           <span>{timeOnly}</span>
                         </span>
                       )}
-                      <div className="text-slate-400">
+                      <div className={hasFinding ? 'text-red-400' : 'text-slate-400'}>
                         {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                       </div>
                     </div>
@@ -523,7 +669,13 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
 
                   {/* DETAIL AKORDEON (MUNCUL HANYA SAAT DIKLIK) */}
                   {isExpanded && (
-                    <div className="px-3 pb-3 pt-1 border-t border-slate-100 bg-slate-50/60 space-y-2 text-xs animate-in fade-in duration-150">
+                    <div
+                      className={`px-3 pb-3 pt-1 border-t space-y-2 text-xs animate-in fade-in duration-150 ${
+                        hasFinding
+                          ? 'border-red-200/80 bg-red-50/30'
+                          : 'border-slate-100 bg-slate-50/60'
+                      }`}
+                    >
                       <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
                         <span className="flex items-center gap-1.5 font-medium text-slate-700 truncate">
                           <MapPin size={13} className="text-slate-400 shrink-0" />
@@ -532,14 +684,28 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
                         <LocationTag type={h.location_type} />
                       </div>
 
-                      <div className="p-2.5 rounded-lg bg-emerald-50/70 border border-emerald-200/70 space-y-1.5 text-xs">
+                      {/* INFORMASI PETUGAS & WAKTU PEMERIKSAAN */}
+                      <div
+                        className={`p-2.5 rounded-lg space-y-1.5 text-xs ${
+                          hasFinding
+                            ? 'bg-white/90 border border-red-200/80'
+                            : 'bg-emerald-50/70 border border-emerald-200/70'
+                        }`}
+                      >
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-1.5 truncate">
-                            <User size={13} className="text-emerald-700 shrink-0" />
+                            <User
+                              size={13}
+                              className={hasFinding ? 'text-red-700 shrink-0' : 'text-emerald-700 shrink-0'}
+                            />
                             <span className="text-[10px] font-bold text-slate-400 uppercase">PETUGAS:</span>
                             <span className="font-bold text-slate-800 truncate">{h.inspectorName}</span>
                           </div>
-                          {h.isOfflineQueue ? (
+                          {hasFinding ? (
+                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-red-100 text-red-800 uppercase border border-red-200">
+                              STATUS: TEMUAN AKTIF
+                            </span>
+                          ) : h.isOfflineQueue ? (
                             <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 uppercase">
                               OFFLINE (LOKAL)
                             </span>
@@ -550,12 +716,93 @@ export default function PetugasClientDashboard({ initialBundle }: { initialBundl
                           )}
                         </div>
 
-                        <div className="flex items-center gap-1.5 text-emerald-950 border-t border-emerald-200/50 pt-1">
-                          <Calendar size={13} className="text-emerald-700 shrink-0" />
-                          <span className="text-[10px] font-bold text-emerald-800 uppercase">WAKTU LENGKAP:</span>
+                        <div
+                          className={`flex items-center gap-1.5 border-t pt-1 ${
+                            hasFinding
+                              ? 'text-slate-700 border-red-100'
+                              : 'text-emerald-950 border-emerald-200/50'
+                          }`}
+                        >
+                          <Calendar
+                            size={13}
+                            className={hasFinding ? 'text-red-600 shrink-0' : 'text-emerald-700 shrink-0'}
+                          />
+                          <span
+                            className={`text-[10px] font-bold uppercase ${
+                              hasFinding ? 'text-slate-500' : 'text-emerald-800'
+                            }`}
+                          >
+                            WAKTU LENGKAP:
+                          </span>
                           <span className="font-bold text-[11px]">{formatCheckDateTime(h.inspectedAt)}</span>
                         </div>
                       </div>
+
+                      {/* RINCIAN TEMUAN K3 AKTIF (MERAH SOFT) */}
+                      {hasFinding && (
+                        <div className="p-2.5 rounded-lg bg-red-100/60 border border-red-200/90 text-xs space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="flex items-center gap-1.5 font-black text-red-900 uppercase text-[10px] tracking-wide">
+                              <AlertTriangle size={13} className="text-red-700 shrink-0" />
+                              RINCIAN TEMUAN K3 ({h.activeFindings.length})
+                            </span>
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-200 text-red-900 uppercase">
+                              {h.activeFindings[0].status === 'dalam_perbaikan'
+                                ? 'DALAM PERBAIKAN'
+                                : 'TERBUKA'}
+                            </span>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            {h.activeFindings.map((f: any, fIdx: number) => (
+                              <div
+                                key={f.id || fIdx}
+                                className="bg-white/95 rounded-lg p-2.5 border border-red-200 text-slate-800 space-y-1.5 shadow-2xs"
+                              >
+                                <p className="text-[11px] font-bold text-red-950 leading-snug">
+                                  {f.description || 'Kondisi komponen tidak baik / rusak'}
+                                </p>
+                                <div className="flex items-center justify-between text-[10px] text-slate-500 border-t border-slate-100 pt-1">
+                                  <span>
+                                    Pelapor: <strong className="text-slate-700">{f.reported_by_name || h.inspectorName}</strong>
+                                  </span>
+                                  <span className="font-bold text-red-700 uppercase">
+                                    Status: {f.status === 'dalam_perbaikan' ? 'Dalam Perbaikan' : 'Terbuka'}
+                                  </span>
+                                </div>
+                                {f.photo_url && (
+                                  <div className="pt-1">
+                                    <img
+                                      src={f.photo_url}
+                                      alt="Foto Temuan"
+                                      className="h-16 sm:h-20 w-auto rounded border border-slate-200 object-cover"
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+
+                          <p className="text-[10px] text-red-800 font-medium italic pt-0.5">
+                            * Kartu ini akan kembali berwarna hijau otomatis begitu Admin / Supervisi memperbarui status temuan menjadi &ldquo;Selesai&rdquo;.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* NOTIFIKASI TEMUAN SELESAI (HIJAU SOFT) JIKA SEBELUMNYA PERNAH ADA TEMUAN */}
+                      {!hasFinding && h.resolvedFindings && h.resolvedFindings.length > 0 && (
+                        <div className="p-2 rounded-lg bg-emerald-100/70 border border-emerald-200 text-emerald-900 text-[11px] flex items-center justify-between gap-1.5">
+                          <div className="flex items-center gap-1.5 truncate">
+                            <CheckCircle2 size={13} className="text-emerald-700 shrink-0" />
+                            <span className="truncate">
+                              Temuan K3 sebelumnya telah diselesaikan oleh Supervisi/Admin ({h.resolvedFindings[0].closed_by_name || 'Admin'}).
+                            </span>
+                          </div>
+                          <span className="text-[9px] font-black uppercase bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded shrink-0">
+                            STATUS: SELESAI
+                          </span>
+                        </div>
+                      )}
 
                       {h.notes && (
                         <p className="text-[11px] text-slate-600 italic bg-white p-2 rounded-lg border border-slate-200 leading-relaxed">
