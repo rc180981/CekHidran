@@ -16,7 +16,7 @@ export default async function LoginPage({
   const { next } = await searchParams;
 
   return (
-    <main className="flex min-h-[100dvh] flex-col justify-center items-center px-4 py-8 sm:px-6 sm:py-12 bg-gradient-to-b from-slate-50 via-canvas to-slate-100">
+    <main className="flex min-h-[100dvh] flex-col justify-center items-center px-4 py-8 sm:px-6 sm:py-12 pt-safe pb-safe bg-gradient-to-b from-slate-50 via-canvas to-slate-100">
       <div className="w-full max-w-[420px] mx-auto">
         {/* Header Logo & Brand */}
         <div className="mb-6 sm:mb-8 flex flex-col items-center text-center">

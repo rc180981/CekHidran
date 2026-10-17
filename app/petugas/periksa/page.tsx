@@ -212,8 +212,8 @@ function PeriksaContent() {
   return (
     <div className="min-h-[100dvh] bg-canvas pb-8 sm:pb-16 flex flex-col">
       {/* Top Navigation Bar */}
-      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/95 backdrop-blur-md px-3 py-2 sm:px-6 sm:py-2.5">
-        <div className="max-w-xl mx-auto flex items-center justify-between">
+      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/95 backdrop-blur-md px-3 py-2 sm:px-6 sm:py-2.5 pt-safe">
+        <div className="max-w-xl md:max-w-2xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Link
               href="/petugas"
@@ -238,7 +238,7 @@ function PeriksaContent() {
       </header>
 
       {/* Main Container */}
-      <main className="max-w-xl w-full mx-auto px-3 py-2.5 sm:px-6 sm:py-4 flex-1">
+      <main className="max-w-xl md:max-w-2xl w-full mx-auto px-3 py-2.5 sm:px-6 sm:py-4 flex-1 pb-safe">
         <InspectionWizard initialBundle={bundle} initialQr={qr} />
       </main>
     </div>

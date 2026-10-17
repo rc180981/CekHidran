@@ -627,7 +627,7 @@ export default function RiwayatChecksheetPage() {
       </div>
 
       {/* FILTER BAR DENGAN PENYARING GUDANG */}
-      <Card className="p-5 shadow-sm">
+      <Card className="p-3.5 sm:p-5 shadow-sm">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
           {/* Filter 1: Pilih Gudang */}
           <div className="md:col-span-4">
@@ -700,8 +700,8 @@ export default function RiwayatChecksheetPage() {
 
       {/* LEMBAR CHECKSHEET FISIK */}
       {activeHydrant ? (
-        <div className="card bg-white p-6 sheet shadow-md overflow-x-auto space-y-6 border border-slate-300">
-          <div className="border border-slate-400 p-4 rounded-xl bg-slate-50/60 shadow-inner">
+        <div className="card bg-white p-3 sm:p-6 sheet shadow-md overflow-x-auto space-y-4 sm:space-y-6 border border-slate-300">
+          <div className="border border-slate-400 p-2.5 sm:p-4 rounded-xl bg-slate-50/60 shadow-inner">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-300 pb-2 mb-3 gap-2">
               <div>
                 <span className="text-[10px] font-bold text-slate-500 tracking-wider uppercase block">
