@@ -72,8 +72,11 @@ export default function PengaturanPage() {
       ]);
 
       let totalPhotos = 0;
+      let actualInspections = 0;
       insSnap.forEach((d) => {
         const data = d.data();
+        if (data.is_reinspection_request) return;
+        actualInspections += 1;
         if (Array.isArray(data.photos)) {
           totalPhotos += data.photos.length;
         }
@@ -92,7 +95,7 @@ export default function PengaturanPage() {
         if (data.resolved_photo_url) totalPhotos += 1;
       });
 
-      setInspectionsCount(insSnap.size);
+      setInspectionsCount(actualInspections);
       setFindingsCount(fSnap.size);
       setPhotosCount(totalPhotos);
     } catch (e) {

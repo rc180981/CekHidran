@@ -33,6 +33,7 @@ describe('Matriks izin sesuai spesifikasi', () => {
     ekspor_laporan: ['admin_sistem', 'supervisor_k3', 'manajemen'],
     lihat_riwayat_semua: ['admin_sistem', 'supervisor_k3', 'manajemen'],
     lihat_audit: ['admin_sistem'],
+    minta_reinspeksi: ['admin_sistem', 'supervisor_k3'],
   };
   const roles: Role[] = ['admin_sistem', 'supervisor_k3', 'petugas', 'manajemen'];
 

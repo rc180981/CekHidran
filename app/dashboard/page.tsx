@@ -76,7 +76,12 @@ export default function DashboardPage() {
         setHydrants(hList);
 
         const iList: any[] = [];
-        iSnap.forEach((d) => iList.push(d.data()));
+        iSnap.forEach((d) => {
+          const data = d.data();
+          if (!data.is_reinspection_request) {
+            iList.push(data);
+          }
+        });
         setInspections(iList);
 
         const fList: any[] = [];

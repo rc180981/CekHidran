@@ -64,7 +64,12 @@ export default function EksporLaporanPage() {
       setItems(itList);
 
       const inList: any[] = [];
-      insSnap.forEach((d) => inList.push(d.data()));
+      insSnap.forEach((d) => {
+        const data = d.data();
+        if (!data.is_reinspection_request) {
+          inList.push(data);
+        }
+      });
       setInspections(inList);
 
       const prList: any[] = [];
